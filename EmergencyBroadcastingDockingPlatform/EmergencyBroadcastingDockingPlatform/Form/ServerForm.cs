@@ -1331,8 +1331,8 @@ namespace EmergencyBroadcastingDockingPlatform
 
                 AudioModel audio = new AudioModel();
                 audio.PlayingTime = Convert.ToDateTime(ebd.EBM.MsgBasicInfo.StartTime);
-              //  audio.PlayEndTime = Convert.ToDateTime(ebd.EBM.MsgBasicInfo.EndTime);//测试注释20181219
-                audio.PlayEndTime = Convert.ToDateTime("2018-12-25 19:46:53");
+                audio.PlayEndTime = Convert.ToDateTime(ebd.EBM.MsgBasicInfo.EndTime);//测试注释20181219
+               // audio.PlayEndTime = Convert.ToDateTime("2018-12-25 19:46:53");
                 string xmlFile = Path.GetFileName(sAnalysisFileName);
                 audio.XmlFilaPath = xmlFilePath;
 
