@@ -14,7 +14,6 @@ namespace EmergencyBroadcastingDockingPlatform.model
         }
         public enum PlaybackRecordType
         {
-
             Report,// 上报        
             request//请求
         }

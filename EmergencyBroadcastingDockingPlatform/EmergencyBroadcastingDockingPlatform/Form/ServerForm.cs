@@ -208,14 +208,22 @@ namespace EmergencyBroadcastingDockingPlatform
 
         private void btnStart_Click(object sender, EventArgs e)
         {
-            if (btnStart.Text == "启动服务")
+            if (btnStart.Text == "服务-未开启")
             {
-                btnStart.Text = "停止服务";
+                btnStart.Text = "服务-已开启";
                 txtServerPort.Enabled = false;
                     FindUserInfo("admin");
                 if (SingletonInfo.GetInstance().IsFirstLoad)
                 {
-                    PlatformInfoReported();//主动上报平台信息
+                    #region 上报平台、终端的全量信息  20190111   注意各个上报的时间间隔
+
+                    //起线程
+
+
+                    Thread t1 = new Thread(new ThreadStart(FirstTimeReportData));
+                    t1.IsBackground = true;
+                    t1.Start();
+                    #endregion
                     SingletonInfo.GetInstance().IsFirstLoad = false;
                     serverini.WriteValue("PLATFORMINFO", "IsFirstLoad", "1");
                 }
@@ -252,7 +260,7 @@ namespace EmergencyBroadcastingDockingPlatform
                 {
                     Log.Instance.LogWrite("停止线程错误：" + em.Message);
                 }
-                btnStart.Text = "启动服务";
+                btnStart.Text = "服务-未开启";
                 txtServerPort.Enabled = true;
 
                 tTerraceInfrom.Enabled = false;
@@ -328,6 +336,18 @@ namespace EmergencyBroadcastingDockingPlatform
 
             ccplayerthread = new Thread(CPPPlayerThread);
             ccplayerthread.Start();
+        }
+
+        private void FirstTimeReportData()
+        {
+            PlatformInfoReported("Full");//主动上报全量平台信息
+            Thread.Sleep(5000);
+            PlatformstateInfoReported("Full");//主动上报全量平台状态
+            Thread.Sleep(5000);
+            PlatformEBRDTInfoReported("Full");//主动上报全量终端信息
+            Thread.Sleep(10000);
+            PlatformEBRDTStateReported("Full");//主动上报全量终端状态
+            Thread.Sleep(10000);
         }
 
         private void ServerForm_Load(object sender, EventArgs e)  //页面参数初始化
@@ -582,6 +602,7 @@ namespace EmergencyBroadcastingDockingPlatform
 
             ConnectMQServer();
             InitFTPServer();
+            InitListIncrementalEBRDTState();
         }
 
 
@@ -600,7 +621,25 @@ namespace EmergencyBroadcastingDockingPlatform
                 }
             }
         }
-       
+
+        /// <summary>
+        /// 初始化终端状态增量信息列表
+        /// </summary>
+        public void InitListIncrementalEBRDTState()
+        {
+            string MediaSql = "select a.SRV_PHYSICAL_CODE,a.SRV_LOGICAL_CODE_GB,a.SRV_RMT_STATUS,b.powersupplystatus from SRV a inner join Srv_Status b on a.SRV_PHYSICAL_CODE = b.srv_physical_code";
+            DataTable dtMediaSRV = mainForm.dba.getQueryInfoBySQL(MediaSql);
+            for (int i = 0; i < dtMediaSRV.Rows.Count; i++)
+            {
+                IncrementalEBRDTState tmpone = new IncrementalEBRDTState();
+                tmpone.powersupplystatus = dtMediaSRV.Rows[i]["powersupplystatus"].ToString();
+                tmpone.SRV_LOGICAL_CODE_GB = dtMediaSRV.Rows[i]["SRV_LOGICAL_CODE_GB"].ToString();
+                tmpone.SRV_PHYSICAL_CODE = dtMediaSRV.Rows[i]["SRV_PHYSICAL_CODE"].ToString();
+                tmpone.SRV_RMT_STATUS = dtMediaSRV.Rows[i]["SRV_RMT_STATUS"].ToString();
+                SingletonInfo.GetInstance().ListIncrementalEBRDTState.Add(tmpone);
+            }
+        }
+
         public void CPPPlayerThread()
         {
             try
@@ -636,7 +675,6 @@ namespace EmergencyBroadcastingDockingPlatform
             List<string> lDealTarFiles = new List<string>();
             List<string> AudioFileListTmp = new List<string>();//收集的音频文件列表
             List<string> AudioFileList = new List<string>();//收集的音频文件列表
-
             while (bDeal)
             {
                 //没有Tar包不处理
@@ -709,10 +747,11 @@ namespace EmergencyBroadcastingDockingPlatform
                                 {
                                     sAnalysisFileName = xmlfilenames[i];
                                 }
-                                else if (sTmpFile.ToUpper().IndexOf("EBDS_EBDB") > -1)//签名文件
-                                {
-                                    sSignFileName = xmlfilenames[i];//签名文件
-                                }
+                                //没必要再验签
+                                //else if (sTmpFile.ToUpper().IndexOf("EBDS_EBDB") > -1)//签名文件
+                                //{
+                                //    sSignFileName = xmlfilenames[i];//签名文件
+                                //}
                             }
                             DeleteFolder(sSourcePath);//删除原有XML发送文件的文件夹下的XML
                             if (sSignFileName == "")
@@ -722,7 +761,7 @@ namespace EmergencyBroadcastingDockingPlatform
                             {
                                 //读取xml中的文件,转换为byte字节
                                 byte[] xmlArray = File.ReadAllBytes(sAnalysisFileName);
-                                #region 签名处理
+                                #region 签名处理   没必要再验签  20190114
                                 //Console.WriteLine("开始验证签名文件!");
                                 //// SetText(string.Format("开始验证签名文件!", Color.Red);
                                 //using (FileStream SignFs = new FileStream(sSignFileName, FileMode.Open))
@@ -846,7 +885,6 @@ namespace EmergencyBroadcastingDockingPlatform
                                                         {
                                                             //SetText("去除DicTsCmd_ID的键：" + AreaString, Color.Black);
                                                         }
-
                                                     }
                                                     if (SingletonInfo.GetInstance().DicPlayingThread.ContainsKey(AreaString))
                                                     {
@@ -892,7 +930,6 @@ namespace EmergencyBroadcastingDockingPlatform
                                                         Log.Instance.LogWrite("非本区域地域码");
                                                     }
                                                 }
-
                                                 #endregion End
                                               
                                                 #region 处理消息
@@ -1023,9 +1060,8 @@ namespace EmergencyBroadcastingDockingPlatform
                                                             }
                                                         }
                                                     }
-                                                    else //EBM实时流播放
+                                                    else //文转语
                                                     {
-
                                                         #region 根据策略判断SingletonInfo.GetInstance().CheckEBMStatusFlag的值  "0"表示需要融合平台审核 "1"表示不需要融合平台审核
                                                         if (!EBMVerifyState)
                                                         {
@@ -1040,8 +1076,6 @@ namespace EmergencyBroadcastingDockingPlatform
                                                         #region 发送给融合平台关于审核的信息
                                                         //待审核数据插入数据库
                                                         string lab_EBMType = "文本转语音播发";
-
-
                                                         sqlstr = "insert into CheckEBMData(EBDID, EBDDID, CodeA, NameA, EBMID, SentTime,EBMStartTime,EBMEndTime, EBMTitle,EBMType,EBMDesc,EBMCode,Severity,EBMUrl,CheckStatus)" +
                     "values('" + ebd.SRC.EBRID + "','" + ebd.EBDID + "', '" + ebd.EBM.MsgBasicInfo.SenderCode + "', '" + ebd.EBM.MsgBasicInfo.SenderName + "','" + ebd.EBM.EBMID + "', '" + ebd.EBM.MsgBasicInfo.SendTime + "','" + ebd.EBM.MsgBasicInfo.StartTime + "','" + ebd.EBM.MsgBasicInfo.EndTime + "','" + ebd.EBM.MsgContent.MsgTitle + "','" + lab_EBMType + "','" + ebd.EBM.MsgContent.MsgDesc + "','" + ebd.EBM.MsgContent.AreaCode + "','" + ebd.EBM.MsgBasicInfo.Severity + "','" + ebd.EBM.MsgContent.Auxiliary.AuxiliaryDesc + "','" + SingletonInfo.GetInstance().CheckEBMStatusFlag + "') SELECT CAST(scope_identity() AS int)";
                                                         ebd.CheckEBMDataID = mainForm.dba.InsertDbBySQLRetID(sqlstr).ToString();
@@ -1246,12 +1280,6 @@ namespace EmergencyBroadcastingDockingPlatform
                                             {
                                                 XmlDocument xmlStateDoc = new XmlDocument();
                                                 responseXML rState = new responseXML();
-                                                //rState.SourceAreaCode = ServerForm.strSourceAreaCode;
-                                                //rState.SourceType = ServerForm.strSourceType;
-                                                //rState.SourceName = ServerForm.strSourceName;
-                                                //rState.SourceID = ServerForm.strSourceID;
-                                                //rState.sHBRONO = SingletonInfo.GetInstance().CurrentResourcecode;
-
                                                 string frdStateName = "10" + SingletonInfo.GetInstance().CurrentResourcecode + BBSHelper.GetSequenceCodes();
                                                 string xmlEBMStateFileName = "\\EBDB_" + frdStateName + ".xml";
                                                 lock (OMDRequestLock)
@@ -1353,7 +1381,6 @@ namespace EmergencyBroadcastingDockingPlatform
             }
 
         }
-
 
         /// <summary>
         /// 根据策略决定当前消息是否需要审核  返回"0"表示需要审核 返回"1"表示不需要审核
@@ -1596,46 +1623,8 @@ namespace EmergencyBroadcastingDockingPlatform
                     ListViewItem OMDRequestEBRDTState = new ListViewItem();
                     OMDRequestEBRDTState.Text = "设备状态请求";
                     this.Invoke(new Action(() => { list_OMDRequest.Items.Add(OMDRequestEBRDTState); }));
-
-                    string MediaSqlS = "";
-                    string strSRV_CODES = "";
-                    
-                    if (ebd.OMDRequest.Params.RptType == "Incremental")
-                    {
-                        MediaSqlS = "select * from SRV where SRV_FLAG2 <> '2' or SRV_FLAG2 Is Null";
-
-                    }
-                    else
-                    {
-                        MediaSqlS = "select *  from SRV";
-                    }
-                    
-                    dtMedia = mainForm.dba.getQueryInfoBySQL(MediaSqlS);
-                    if (dtMedia != null && dtMedia.Rows.Count > 0)
-                    {
-                        for (int idtM = 0; idtM < dtMedia.Rows.Count; idtM++)
-                        {
-                            Device DV = new Device();
-                          
-                         
-                            DV.EBRID = dtMedia.Rows[idtM]["SRV_LOGICAL_CODE_GB"].ToString();
-
-                            string SRV_RMT_STATUStmp = dtMedia.Rows[idtM]["SRV_RMT_STATUS"].ToString();
-
-                            if (SRV_RMT_STATUStmp == "离线")
-                            {
-                                DV.StateCode = "3";
-                            }
-                            else
-                            {
-                                DV.StateCode = "1";
-                            }
-                            lDev.Add(DV);
-                        }
-                        string strSql = string.Format("update SRV set SRV_FLAG2 = '{0}' where SRV_FLAG2 <> '2' or SRV_FLAG2 Is Null", "2");
-                        mainForm.dba.UpdateDbBySQL(strSql);
-                    }
-                    xmlStateDoc = rState.DeviceStateResponse(lDev, frdStateName, ebd);
+                    lDev = GetEBRDTStateFromDataBase(ebd.OMDRequest.Params.RptType);
+                     xmlStateDoc = rState.DeviceStateResponse(lDev, frdStateName, ebd);
                     UnifyCreateTar(xmlStateDoc, frdStateName);
                     sHeartBeatTarName = sSendTarPath + "\\" + "EBDT_" + frdStateName + ".tar";
                     send.address = SingletonInfo.GetInstance().SendTarAddress;
@@ -1732,7 +1721,6 @@ namespace EmergencyBroadcastingDockingPlatform
 
         private void UnifyCreateTar(XmlDocument xmlStateDoc, string frdStateName)
         {
-
             string XMLSavePath = CreateCMLSavePath(frdStateName);
             string xmlSignFileName = "\\EBDB_" + frdStateName + ".xml";
             CreateXML(xmlStateDoc, XMLSavePath + xmlSignFileName);
@@ -2044,162 +2032,6 @@ namespace EmergencyBroadcastingDockingPlatform
             }
         }
 
-        public string Str2Hex(string strMsg)
-        {
-            string result = string.Empty;
-
-            byte[] arrByte = System.Text.Encoding.GetEncoding("GB2312").GetBytes(strMsg);
-            for (int i = 0; i < arrByte.Length; i++)
-            {
-                result += System.Convert.ToString(arrByte[i], 16) + " "; //Convert.ToString(byte, 16)把byte转化成十六进制string 
-            }
-            result = result.Trim();
-            return result;
-        }
-
-        public List<string> Str2HexList(string strMsg)
-        {
-            string result = string.Empty;
-            List<string> retStrList = new List<string>();
-
-            byte[] arrByte = System.Text.Encoding.GetEncoding("GB2312").GetBytes(strMsg);
-            for (int i = 0; i < arrByte.Length; i++)
-            {
-                //result += System.Convert.ToString(arrByte[i], 16) + " "; //Convert.ToString(byte, 16)把byte转化成十六进制string 
-                retStrList.Add(System.Convert.ToString(arrByte[i], 16));
-            }
-            //result = result.Trim();
-            return retStrList;
-        }
-
-        /// <summary>
-        /// 字节数组转字符
-        /// </summary>
-        /// <param name="s"></param>
-        /// <returns></returns>
-        public string DecodingSMS(string s)
-        {
-            string result = string.Empty;
-            byte[] arrByte = new byte[s.Length / 2];
-            int index = 0;
-            for (int i = 0; i < s.Length; i += 2)
-            {
-                arrByte[index++] = Convert.ToByte(s.Substring(i, 2), 16); //Convert.ToByte(string,16)把十六进制string转化成byte 
-            }
-            result = Encoding.Default.GetString(arrByte);
-
-            return result;
-        }
-
-        private void SaveEBD(EBD ebdstruct, int tscmd_id)
-        {
-            if (tscmd_id == -1)
-            {
-                return;
-            }
-            string sqlstr = "";
-            string strEBDType = ebdstruct.EBDType.ToLower();
-            string strEBDID = ebdstruct.EBDID;
-
-            switch (strEBDType)
-            {
-                case "ebm":
-                    #region EBM
-                    string strEBMID = ebdstruct.EBM.EBMID;//消息ID
-                    if (strEBMID == "")
-                    {
-                        Console.WriteLine("应急广播消息ID无效！");
-                    }
-                    else
-                    {
-                        sqlstr = "select count(*) from PlatformBRD where BRDEBMID ='" + strEBMID + "'";
-                    }
-                    int row_num = (int)mainForm.dba.getQueryResultBySQL(sqlstr);//查询数据库中是否有该记录
-                    if (row_num == 0)
-                    {
-                        try
-                        {
-                            //BRDAuxiliaryInfo用于保存Auxiliary信息
-                            string strBRDTime = ebdstruct.EBDTime;//数据包生成时间
-                            //string strBRDSRCAreaCode = ebdstruct.SRC.AreaCode;  //2016-04-01
-                            //string strBRDSourceType = ebdstruct.SRC.EBEType;
-                            //string strBRDSourceName = ebdstruct.SRC.EBEName;
-                            string strBRDSRCAreaCode = "";  //2016-04-01
-                            string strBRDSourceType = "";
-                            string strBRDSourceName = "";
-                            string strBRDSourceID = ebdstruct.SRC.EBRID;
-
-                            string strBRDStartTime = ebdstruct.EBM.StartTime;
-                            string strBRDEndTime = ebdstruct.EBM.EndTime;
-                            string strBRDSendTime = ebdstruct.EBM.MsgBasicInfo.SendTime;
-                            //string strBRDMsgType = ebdstruct.EBM.MsgBasicInfo.MsgType;
-                            string strBRDMsgType = ebdstruct.EBM.TestType;
-                            //string strBRDExerciseType = ebdstruct.EBM.ExerciseType;  //播放演练类型
-                            string strBRDSender = ebdstruct.EBM.MsgBasicInfo.SenderName;  //发布机构名称
-                            string strBRDDescription = ebdstruct.EBM.MsgContent.MsgDesc.Trim();  //消息内容
-                            string strBRDEventType = ebdstruct.EBM.MsgBasicInfo.EventType;  //事件类型编码
-                            string strBRDSeverity = ebdstruct.EBM.MsgBasicInfo.Severity;  //事件类型
-                            // string strBRDLanguageOrCharSet = ebdstruct.EBM.MsgContent.LanguageCode + "|" + ebdstruct.EBM.MsgContent.CharSet;
-                            string strBRDAuxiliaryInfo = string.Empty;
-                            /*  if (ebdstruct.EBM.MsgContent.Auxiliary.Count>0)
-                              {
-                                  strBRDAuxiliaryInfo = ebdstruct.EBM.MsgContent.Auxiliary[0].AuxiliaryType + "|" + ebdstruct.EBM.MsgContent.Auxiliary[0].AuxiliaryDesc;
-                              }*/
-                            string strCoverageAreaCode = string.Empty;
-                            if (ebdstruct.EBM.MsgContent.AreaCode != null)  //原以多条数据，现以“，"分割
-                            {
-                                strCoverageAreaCode = ebdstruct.EBM.MsgContent.AreaCode;  //2016-04-03 需分析多条数据
-                                //for (int aCount = 0; aCount < ebdstruct.EBM.Coverage.Area.Count; aCount++)
-                                //{
-                                //    if (aCount == 0)
-                                //    {
-                                //        strCoverageAreaCode = ebdstruct.EBM.Coverage.Area[aCount].AreaCode + ";" + ebdstruct.EBM.Coverage.Area[aCount].AreaName;
-                                //    }
-                                //    else
-                                //    {
-                                //        strCoverageAreaCode = strCoverageAreaCode + "|" + ebdstruct.EBM.Coverage.Area[aCount].AreaCode + ";" + ebdstruct.EBM.Coverage.Area[aCount].AreaName;
-                                //    }
-                                //}
-                            }
-
-                            sqlstr = "insert into PlatformBRD(BRDEBDTime,EBDID,TsCmdID,BRDSRCAreaCode,BRDSRCEBEType,BRDSRCEBEName,BRDSRCEBEID,BRDStartTime,BRDEndTime," +
-                                     "BRDSendTime,BRDEBMID,BRDMsgType,BRDExerciseType,BRDSender,BRDMsgDesc,BRDEventType,BRDSeverity,BRDLanguageOrCharSet,BRDAuxiliaryInfo" +
-                                     ",BRDCoverageArea) values( '" + strBRDTime + "','" + strEBDID + "'," + tscmd_id + ",'" + strBRDSRCAreaCode + "','" + strBRDSourceType +
-                                     "','" + strBRDSourceName + "','" + strBRDSourceID + "','" + strBRDStartTime + "','" + strBRDEndTime +
-                                     "','" + strBRDSendTime + "','" + strEBMID + "','" + strBRDMsgType + "','" + "" +//strBRDExerciseType +
-                                     "','" + strBRDSender + "','" + strBRDDescription + "','" + strBRDEventType + "','" + strBRDSeverity + "','" + "" +
-                                     "','" + strBRDAuxiliaryInfo + "','" + strCoverageAreaCode + "')";
-                            mainForm.dba.UpdateDbBySQL(sqlstr);
-                        }
-                        catch (Exception es)
-                        {
-                            Log.Instance.LogWrite("插入数据错误：" + es.Message);
-                        }
-                    }
-                    else
-                    {
-                        try
-                        {
-                            sqlstr = "update TsCmdStore set TsCmd_Excute='停止',TsCmd_Note='-1' where TsCmd_ID = (select TsCmdID from PlatformBRD where BRDEBMID ='" + strEBMID + "')";
-                            mainForm.dba.UpdateDbBySQL(sqlstr);
-
-                            sqlstr = "update PlatformBRD set TsCmdID=" + tscmd_id + " where BRDEBMID ='" + strEBMID + "'";
-                            mainForm.dba.UpdateDbBySQL(sqlstr);
-                        }
-                        catch (Exception es)
-                        {
-                            Log.Instance.LogWrite("更新数据错误：" + es.Message);
-                        }
-                    }
-                    #endregion End
-                    break;
-                case "heartbeat":
-                    //不保存心跳包
-                    break;
-                default:
-                    break;
-            }
-        }
 
         #region 替换后面的“00”为“AA”
         private string ReplaceToAA(string dataStr)
@@ -2243,120 +2075,6 @@ namespace EmergencyBroadcastingDockingPlatform
                 lh_Str = "";
             }
             return lh_Str;
-        }
-
-        public string CRCBack(string sOrigin)
-        {
-            string[] sTmp = sOrigin.Trim().Split(' ');
-            byte[] list = new byte[sTmp.Length];
-            for (int i = 0; i < sTmp.Length; i++)
-            {
-                list[i] = (byte.Parse(sTmp[i], System.Globalization.NumberStyles.HexNumber));
-            }
-            string lists = CalmCRC.GetCRC(list)[0].ToString("X2") + " " + CalmCRC.GetCRC(list)[1].ToString("X2");
-            return lists;
-        }
-
-        public void ShowMsg(string msgstr)
-        {
-            txtMsgShow.Text = msgstr;
-        }
-
-        public void EBMStateToList(DataTable dtState, ref List<EBMState> lPlat)
-        {
-            if (dtState != null)
-            {
-                for (int i = 0; i < dtState.Rows.Count; i++)
-                {
-                    EBMState ebmState = new EBMState();
-                    ebmState.BRDCoverageArea = dtState.Rows[i][0].ToString();
-                    ebmState.BRDState = dtState.Rows[i][0].ToString();
-                    lPlat.Add(ebmState);
-                }
-            }
-        }
-
-        //应急消息播发状态请求反馈
-        private void sendEBMStateRequestResponse()
-        {
-            string MediaSql = "";
-            string TsCmd_XmlFile = "";
-            int TsCmd_ID = 0;
-            EBD ebdStateRequest;
-            try
-            {
-                MediaSql = "select top(1)TsCmd_ID,TsCmd_XmlFile from TsCmdStoreMedia where TsCmd_ValueID = '" + ebd.EBMStateRequest.EBM.EBMID + "' order by TsCmd_Date desc";
-                DataTable dtMedia = mainForm.dba.getQueryInfoBySQL(MediaSql);
-                if (dtMedia != null && dtMedia.Rows.Count > 0)
-                {
-                    for (int idtM = 0; idtM < dtMedia.Rows.Count; idtM++)
-                    {
-                        TsCmd_ID = (int)dtMedia.Rows[idtM][0];
-                        TsCmd_XmlFile = dtMedia.Rows[idtM][1].ToString();
-                        using (FileStream fs = new FileStream(TsCmd_XmlFile, FileMode.Open))
-                        {
-                            StreamReader sr = new StreamReader(fs, System.Text.Encoding.UTF8);
-                            String xmlInfo = sr.ReadToEnd();
-                            xmlInfo = xmlInfo.Replace("xmlns:xs", "xmlns");
-                            sr.Close();
-                            xmlInfo = XmlSerialize.ReplaceLowOrderASCIICharacters(xmlInfo);
-                            xmlInfo = XmlSerialize.GetLowOrderASCIICharacters(xmlInfo);
-                            ebdStateRequest = XmlSerialize.DeserializeXML<EBD>(xmlInfo);
-                        }
-                        sendEBMStateResponse(ebdStateRequest);
-                        SetText(DateTime.Now.ToString() + "应急消息播发状态请求反馈：" + ebd.EBMStateRequest.EBM.EBMID, Color.Orange);
-                    }
-                }
-            }
-            catch
-            {
-            }
-
-        }
-
-        //应急消息播发状态反馈
-        private void sendEBMStateResponse(EBD ebdsr)
-        {
-            #region 先删除解压缩包中的文件
-            foreach (string xmlfiledel in Directory.GetFileSystemEntries(sEBMStateResponsePath))
-            {
-                if (File.Exists(xmlfiledel))
-                {
-                    FileInfo fi = new FileInfo(xmlfiledel);
-                    if (fi.Attributes.ToString().IndexOf("ReadOnly") != -1)
-                        fi.Attributes = FileAttributes.Normal;
-                    File.Delete(xmlfiledel);//直接删除其中的文件  
-                }
-            }
-            #endregion End
-            XmlDocument xmlHeartDoc = new XmlDocument();
-            responseXML rHeart = new responseXML();
-            rHeart.SourceAreaCode = strSourceAreaCode;
-            rHeart.SourceType = strSourceType;
-            rHeart.SourceName = strSourceName;
-            rHeart.SourceID = strSourceID;
-            rHeart.sHBRONO = SingletonInfo.GetInstance().CurrentResourcecode;
-            string fName = ebd.EBDID.ToString() + BBSHelper.GetSequenceCodes();
-            string xmlSignFileName = "\\EBDI_" + ebd.EBDID.ToString() + ".xml";
-            xmlHeartDoc = rHeart.EBMStateResponse(ebd, "EBMStateResponse", fName);
-            //string xmlStateFileName = "\\EBDB_000000000001.xml";
-            CreateXML(xmlHeartDoc, sEBMStateResponsePath + xmlSignFileName);
-            tar.CreatTar(sEBMStateResponsePath, sSendTarPath, ebd.EBDID.ToString());// "HB000000000001");//使用新TAR
-            //}
-            //catch (Exception ec)
-            //{
-            //    Log.Instance.LogWrite("应急消息播发状态反馈组包错误：" + ec.Message);
-            //}
-            //string sHeartBeatTarName = sSendTarPath + "\\" + "HB000000000001" + ".tar";
-            string sHeartBeatTarName = sSendTarPath + "\\EBDT_" + ebd.EBDID.ToString() + ".tar";
-            try
-            {
-                HttpSendFile.UploadFilesByPost(SingletonInfo.GetInstance().SendTarAddress, sHeartBeatTarName);
-            }
-            catch (Exception w)
-            {
-                Log.Instance.LogWrite("应急消息播发状态反馈发送平台错误：" + w.Message);
-            }
         }
 
         private void timHold_Tick(object sender, EventArgs e)
@@ -2534,82 +2252,7 @@ namespace EmergencyBroadcastingDockingPlatform
                 dtLinkTime = DateTime.Now;
             }
             #endregion End
-        }
-
-        private void btnHeart_Click(object sender, EventArgs e)
-        {
-
-            XmlDocument xmlHeartDoc = new XmlDocument();
-            responseXML rHeart = new responseXML();
-            rHeart.SourceAreaCode = strSourceAreaCode;
-            rHeart.SourceType = strSourceType;
-            rHeart.SourceName = strSourceName;
-            rHeart.SourceID = strSourceID;
-            rHeart.sHBRONO = SingletonInfo.GetInstance().CurrentResourcecode;
-            ServerForm.DeleteFolder(sHeartSourceFilePath);//删除原有XML发送文件的文件夹下的XML
-            try
-            {
-                xmlHeartDoc = rHeart.HeartBeatResponse();
-                string HeartName = "01" + rHeart.sHBRONO + "0000000000000000";
-                string xmlStateFileName = "EBDB_" + "01" + rHeart.sHBRONO + "0000000000000000.xml";
-                CreateXML(xmlHeartDoc, sHeartSourceFilePath + "\\" + xmlStateFileName);
-
-                ServerForm.mainFrm.GenerateSignatureFile(sHeartSourceFilePath, HeartName);
-                tar.CreatTar(sHeartSourceFilePath, sSendTarPath, "01" + rHeart.sHBRONO + "0000000000000000");
-            }
-            catch (Exception ec)
-            {
-                Log.Instance.LogWrite("心跳处错误：" + ec.Message);
-            }
-            string sHeartBeatTarName = sSendTarPath + "\\" + "EBDT_" + "01" + rHeart.sHBRONO + "0000000000000000" + ".tar";
-            HttpSendFile.UploadFilesByPost(SingletonInfo.GetInstance().SendTarAddress, sHeartBeatTarName);
-
-            //XmlDocument xmlHeartDoc = new XmlDocument();
-            //responseXML rHeart = new responseXML();
-            //rHeart.SourceAreaCode = strSourceAreaCode;
-            //rHeart.SourceType = strSourceType;
-            //rHeart.SourceName = strSourceName;
-            //rHeart.SourceID = strSourceID;
-            //rHeart.sHBRONO = strHBRONO;
-            //ServerForm.DeleteFolder(sHeartSourceFilePath);//删除原有XML发送文件的文件夹下的XML
-            //try
-            //{
-            //    xmlHeartDoc = rHeart.HeartBeatResponse();
-            //    string xmlStateFileName = "EBDB_" + "01" + rHeart.sHBRONO + "0000000000000000.xml";
-            //    CreateXML(xmlHeartDoc, sHeartSourceFilePath + "\\" + xmlStateFileName);
-            //    tar.CreatTar(sHeartSourceFilePath, sSendTarPath, "01" + rHeart.sHBRONO + "0000000000000000");
-            //}
-            //catch (Exception ec)
-            //{
-            //    Log.Instance.LogWrite("心跳处错误：" + ec.Message);
-            //}
-            //string sHeartBeatTarName = sSendTarPath + "\\" + "EBDT_" + "01" + rHeart.sHBRONO + "0000000000000000" + ".tar";
-            //HttpSendFile.UploadFilesByPost(sZJPostUrlAddress, sHeartBeatTarName);
-
-            #region 心跳判断
-            if (dtLinkTime != null && dtLinkTime.ToString() != "")
-            {
-                int timetick = DateDiff(DateTime.Now, dtLinkTime);
-                //大于600秒（10分钟）
-                if (timetick > OnOffLineInterval)
-                {
-                    this.Text = "离线";
-                }
-                else
-                {
-                    this.Text = "在线";
-                }
-                if (timetick > OnOffLineInterval * 3)
-                {
-                    dtLinkTime = DateTime.Now.AddSeconds(-2 * OnOffLineInterval);
-                }
-            }
-            else
-            {
-                dtLinkTime = DateTime.Now;
-            }
-            #endregion End
-        }
+        }  
 
         //线程间同步
         public void SetText(string text, Color colo)
@@ -2702,16 +2345,10 @@ namespace EmergencyBroadcastingDockingPlatform
         }
 
         #region 应急广播平台信息上报函数  
-        private void PlatformInfoReported()
+        private void PlatformInfoReported(string datatype = "Incremental")
         {
             XmlDocument xmlHeartDoc = new XmlDocument();
             responseXML rHeart = new responseXML();
-            //rHeart.SourceAreaCode = strSourceAreaCode;
-            //rHeart.SourceType = strSourceType;
-            //rHeart.SourceName = strSourceName;
-            //rHeart.SourceID = strSourceID;
-            //rHeart.sHBRONO = SingletonInfo.GetInstance().CurrentResourcecode;
-
             ServerForm.DeleteFolder(sHeartSourceFilePath);//删除原有XML发送文件的文件夹下的XML
             string frdStateName = "";
             try
@@ -2733,16 +2370,10 @@ namespace EmergencyBroadcastingDockingPlatform
         #endregion
 
         #region 应急广播平台状态上报函数
-        private void PlatformstateInfoReported()
+        private void PlatformstateInfoReported(string datatype = "Incremental")
         {
             XmlDocument xmlHeartDoc = new XmlDocument();
             responseXML rHeart = new responseXML();
-            //rHeart.SourceAreaCode = strSourceAreaCode;
-            //rHeart.SourceType = strSourceType;
-            //rHeart.SourceName = strSourceName;
-            //rHeart.SourceID = strSourceID;
-            //rHeart.sHBRONO = SingletonInfo.GetInstance().CurrentResourcecode;
-
             ServerForm.DeleteFolder(sHeartSourceFilePath);//删除原有XML发送文件的文件夹下的XML
             string frdStateName = "";
             try
@@ -2762,16 +2393,11 @@ namespace EmergencyBroadcastingDockingPlatform
         }
         #endregion
 
-        #region 应急广播平台终端信息上报函数
-        private void PlatformEBRDTInfoReported()
+        #region 应急广播平台终端信息上报函数 
+        private void PlatformEBRDTInfoReported(string datatype= "Incremental")
         {
             XmlDocument xmlHeartDoc = new XmlDocument();
             responseXML rHeart = new responseXML();
-            //rHeart.SourceAreaCode = strSourceAreaCode;
-            //rHeart.SourceType = strSourceType;
-            //rHeart.SourceName = strSourceName;
-            //rHeart.SourceID = strSourceID;
-            //rHeart.sHBRONO = SingletonInfo.GetInstance().CurrentResourcecode;
             string MediaSql = "";
             string strSRV_ID = "";
             string strSRV_CODE = "";
@@ -2781,9 +2407,16 @@ namespace EmergencyBroadcastingDockingPlatform
             List<Device> lDev = new List<Device>();
             try
             {
-                MediaSql = "select *  from SRV where SRV_FLAG3 <> '2' or SRV_FLAG3 Is Null";
-                DataTable dtMedia = mainForm.dba.getQueryInfoBySQL(MediaSql);
-
+                DataTable dtMedia;
+                if (datatype == "Incremental")
+                {
+                    MediaSql = "select *  from SRV where SRV_FLAG3 <> '2' or SRV_FLAG3 Is Null";
+                }
+                else
+                {
+                    MediaSql = "select *  from SRV";
+                }
+                dtMedia = mainForm.dba.getQueryInfoBySQL(MediaSql);
                 for (int idtM = 0; idtM < dtMedia.Rows.Count; idtM++)
                 {
                     Device DV = new Device();
@@ -2824,61 +2457,30 @@ namespace EmergencyBroadcastingDockingPlatform
         #endregion
 
         #region 应急广播平台终端状态上报函数
-        private void PlatformEBRDTStateReported()
+        private void PlatformEBRDTStateReported(string datatype = "Incremental")
         {
             XmlDocument xmlHeartDoc = new XmlDocument();
             responseXML rHeart = new responseXML();
-            //rHeart.SourceAreaCode = strSourceAreaCode;
-            //rHeart.SourceType = strSourceType;
-            //rHeart.SourceName = strSourceName;
-            //rHeart.SourceID = strSourceID;
-            //rHeart.sHBRONO = SingletonInfo.GetInstance().CurrentResourcecode;
             string MediaSql = "";
             ServerForm.DeleteFolder(sHeartSourceFilePath);//删除原有XML发送文件的文件夹下的XML
             string frdStateName = "";
             List<Device> lDev = new List<Device>();
             try
             {
-                MediaSql = "select * from SRV where SRV_FLAG2 <> '2' or SRV_FLAG2 Is Null";
-                DataTable dtMedia = mainForm.dba.getQueryInfoBySQL(MediaSql);
-                if (dtMedia != null && dtMedia.Rows.Count > 0)
-                {
-                    for (int idtM = 0; idtM < dtMedia.Rows.Count; idtM++)
-                    {
-                        Device DV = new Device();
-                        DV.EBRID = dtMedia.Rows[idtM]["SRV_LOGICAL_CODE_GB"].ToString();
+                lDev = GetEBRDTStateFromDataBase(datatype);
+                frdStateName = "10" + SingletonInfo.GetInstance().CurrentResourcecode + BBSHelper.GetSequenceCodes();
+                string xmlEBMStateFileName = "\\EBDB_" + frdStateName + ".xml";
+                xmlHeartDoc = rHeart.DeviceStateResponse(lDev, frdStateName);
+                CreateXML(xmlHeartDoc, sHeartSourceFilePath + xmlEBMStateFileName);
+                ServerForm.mainFrm.GenerateSignatureFile(sHeartSourceFilePath, frdStateName);
+                ServerForm.tar.CreatTar(sHeartSourceFilePath, ServerForm.sSendTarPath, frdStateName);//使用新TAR
+                string sHeartBeatTarName = sSendTarPath + "\\" + "EBDT_" + frdStateName + ".tar";
+                HttpSendFile.UploadFilesByPost(SingletonInfo.GetInstance().SendTarAddress, sHeartBeatTarName);
 
-                        string SRV_RMT_STATUStmp = dtMedia.Rows[idtM]["SRV_RMT_STATUS"].ToString();
-                       
-                        if (SRV_RMT_STATUStmp == "离线")
-                        {
-                            DV.StateCode = "3";
-                        }
-                        else
-                        {
-                            DV.StateCode = "1";
-                        }
-                      
-                        lDev.Add(DV);
-                    }
-
-                   
-                    string strSql = string.Format("update SRV set SRV_FLAG2 = '{0}'", "2");
-                    mainForm.dba.UpdateDbBySQL(strSql);
-
-                    frdStateName = "10" + SingletonInfo.GetInstance().CurrentResourcecode + BBSHelper.GetSequenceCodes();
-                    string xmlEBMStateFileName = "\\EBDB_" + frdStateName + ".xml";
-
-                    xmlHeartDoc = rHeart.DeviceStateResponse(lDev, frdStateName);
-                    CreateXML(xmlHeartDoc, sHeartSourceFilePath + xmlEBMStateFileName);
-                    ServerForm.mainFrm.GenerateSignatureFile(sHeartSourceFilePath, frdStateName);
-                    ServerForm.tar.CreatTar(sHeartSourceFilePath, ServerForm.sSendTarPath, frdStateName);//使用新TAR
-                    string sHeartBeatTarName = sSendTarPath + "\\" + "EBDT_" + frdStateName + ".tar";
-                    HttpSendFile.UploadFilesByPost(SingletonInfo.GetInstance().SendTarAddress, sHeartBeatTarName);
-                }
             }
-            catch
+            catch(Exception ex)
             {
+                throw (ex);
             }
         }
         #endregion
@@ -2906,146 +2508,7 @@ namespace EmergencyBroadcastingDockingPlatform
         {
             PlatformEBRDTInfoReported();
         }
-
-        //XML解析测试
-        private void button5_Click(object sender, EventArgs e)
-        {
-            #region Test1
-
-            //ccplay.StopCPPPlayer2();
-            //string strSql = "delete  from PLAYRECORD";
-            //mainForm.dba.UpdateDbBySQL(strSql);
-
-            //    string sSignFileName = "E://EBDS_EBDB_100102320000000000010000000000005304.xml";
-            //    using (FileStream SignFs = new FileStream(sSignFileName, FileMode.Open))
-            //    {
-            //        StreamReader signsr = new StreamReader(SignFs, System.Text.Encoding.UTF8);
-            //        string xmlsign = signsr.ReadToEnd();
-            //        //xmlsign = xmlsign.Replace("xmlns:xs", "xmlns");
-            //        signsr.Close();
-            //        responseXML signrp = new responseXML();//签名回复
-            //        XmlDocument xmlSignDoc = new XmlDocument();
-            //        try
-            //        {
-            //            xmlsign = XmlSerialize.ReplaceLowOrderASCIICharacters(xmlsign);
-            //            xmlsign = XmlSerialize.GetLowOrderASCIICharacters(xmlsign);
-            //            Signature sign = XmlSerialize.DeserializeXML<Signature>(xmlsign);
-
-            //            int nDeviceHandle = (int)mainFrm.phDeviceHandle;
-
-            //            byte[] strpcData;
-            //            byte[] pucCounter = new byte[4];
-
-            //            pucCounter[0] = 0X00;
-            //            pucCounter[1] = 0X00;
-            //            pucCounter[2] = 0X00;
-            //            pucCounter[3] = 0X35;
-
-            //            byte[] pucSignCerSn = new byte[6];
-
-            //            pucSignCerSn[0] = 0X00;
-            //            pucSignCerSn[1] = 0X00;
-            //            pucSignCerSn[2] = 0X00;
-            //            pucSignCerSn[3] = 0X00;
-            //            pucSignCerSn[4] = 0X00;
-            //            pucSignCerSn[5] = 0X84;
-
-            //            Encoding myEncoding = Encoding.GetEncoding("utf-8");
-            //            strpcData = Convert.FromBase64String(sign.SignatureValue);
-
-            //            mainFrm.usb.VerifySignatureWithTrustedCert(ref nDeviceHandle, strpcData, strpcData.Length, pucCounter, pucSignCerSn, strpcData);
-            //        }
-            //        catch (Exception ex)
-            //        {
-            //            Log.Instance.LogWrite("签名文件错误：" + ex.Message);
-            //           // xmlSignDoc = signrp.SignResponse("", "Error");
-            //        }
-            //        xmlSignDoc.Save(sSourcePath + "\\EBDSign.xml");
-            //    } 
-            #endregion
-            try
-            {
-
-                int nDeviceHandle = (int)mainFrm.phDeviceHandle;
-                //mainFrm.usb.PlatformVerifySignature();
-                DeleteFolder(sUnTarPath);//删除原有tar解压文件 
-                tar.UnpackTarFiles("D://Abutment\\93\\SendTarFilePath\\EBDT_100102321323000000010000000000000974.tar", sUnTarPath);//解压Tar包
-                string[] xmlfilenames = Directory.GetFiles(sUnTarPath, "*.xml");//从解压XML文件夹下获取解压的XML文件名
-                string sTmpFile = string.Empty;
-                string sAnalysisFileName = string.Empty;
-                string sSignFileName = string.Empty;
-
-                for (int i = 0; i < xmlfilenames.Length; i++)
-                {
-                    sTmpFile = Path.GetFileName(xmlfilenames[i]);
-                    if (sTmpFile.ToUpper().IndexOf("EBDB") > -1 && sTmpFile.ToUpper().IndexOf("EBDS_EBDB") < 0)
-                    {
-                        sAnalysisFileName = xmlfilenames[i];
-                    }
-                    else if (sTmpFile.ToUpper().IndexOf("EBDS_EBDB") > -1)//签名文件
-                    {
-                        sSignFileName = xmlfilenames[i];//签名文件
-                    }
-                }
-                DeleteFolder(sSourcePath);//删除原有XML发送文件的文件夹下的XML
-
-                if (sSignFileName == "")
-                {
-                    //continue;
-                }
-                else
-                {
-                    Console.WriteLine("开始验证签名文件!");
-                    byte[] pucSignature = null;
-                    byte[] pucsingVi = null;
-                    string PucStr = string.Empty;
-                    using (FileStream SignFs = new FileStream(sAnalysisFileName, FileMode.Open))
-                    {
-                        StreamReader signsr = new StreamReader(SignFs, System.Text.Encoding.UTF8);
-                        string xmlsign = signsr.ReadToEnd();
-                        signsr.Close();
-                        responseXML signrp = new responseXML();//签名回复
-                        XmlDocument xmlSignDoc = new XmlDocument();
-                        pucSignature = Encoding.UTF8.GetBytes(xmlsign);
-                        Console.WriteLine(xmlsign);
-                        Console.WriteLine(pucSignature.Length);
-                    }
-                    using (FileStream SignFs = new FileStream(sSignFileName, FileMode.Open))
-                    {
-                        StreamReader signsr = new StreamReader(SignFs, System.Text.Encoding.UTF8);
-                        string xmlsign = signsr.ReadToEnd();
-                        signsr.Close();
-                        responseXML signrp = new responseXML();//签名回复
-                        XmlDocument xmlSignDoc = new XmlDocument();
-                        try
-                        {
-                            xmlsign = XmlSerialize.ReplaceLowOrderASCIICharacters(xmlsign);
-                            xmlsign = XmlSerialize.GetLowOrderASCIICharacters(xmlsign);
-                            Signature sign = XmlSerialize.DeserializeXML<Signature>(xmlsign);
-                            PucStr = sign.SignatureValue;
-                            pucsingVi = Encoding.UTF8.GetBytes(sign.SignatureValue);
-                            Console.WriteLine(PucStr);
-                            Console.WriteLine(pucsingVi.Length);
-                        }
-                        catch (Exception ex)
-                        {
-                            Log.Instance.LogWrite("签名文件错误：" + ex.Message);
-                        }
-                    }
-                    byte[] ddd = new byte[1010];
-                    byte[] ddee = new byte[1124];
-
-                    mainFrm.usb.PlatformVerifySignature(nDeviceHandle, 1, pucSignature, pucSignature.Length, pucsingVi);
-                    Console.WriteLine("结束验证签名文件！");
-                }
-            }
-            catch (Exception ex)
-            {
-                Console.WriteLine("验签有异常: " + ex.Message);
-            }
-        }
-
-
+        
         /// <summary>
         /// 定时的心跳反馈包
         /// </summary>
@@ -3110,31 +2573,6 @@ namespace EmergencyBroadcastingDockingPlatform
             Thread.Sleep(1000);
         }
 
-        private void StateOrInfoUp(string strOMDType)
-        {
-            try
-            {
-                XmlDocument xmlStateDoc = new XmlDocument();
-                responseXML rState = new responseXML();
-                rState.SourceAreaCode = strSourceAreaCode;
-                rState.SourceType = strSourceType;
-                rState.SourceName = strSourceName;
-                rState.SourceID = strSourceID;
-                rState.sHBRONO = SingletonInfo.GetInstance().CurrentResourcecode;
-                string frdStateName = "10" + rState.sHBRONO + BBSHelper.GetSequenceCodes();
-                string xmlEBMStateFileName = "\\EBDB_" + frdStateName + ".xml";
-                List<Device> lDev = new List<Device>();
-                lock (OMDRequestLock)
-                {
-                  //  TarOMRequest(xmlStateDoc, rState, strOMDType, frdStateName, xmlEBMStateFileName, lDev);
-                } 
-            }
-            catch (Exception h)
-            {
-                Log.Instance.LogWrite("错误510行:" + h.Message);
-            }
-        }
-
         /// <summary>
         /// 终端状态上报
         /// </summary>
@@ -3142,7 +2580,7 @@ namespace EmergencyBroadcastingDockingPlatform
         /// <param name="e"></param>
         protected void SrvStateUP(object source, System.Timers.ElapsedEventArgs e)
         {
-         
+            PlatformEBRDTStateReported();
         }
 
         /// <summary>
@@ -3180,6 +2618,199 @@ namespace EmergencyBroadcastingDockingPlatform
         }
 
         /// <summary>
+        /// 从数据库获取终端状态信息
+        /// </summary>
+        /// <param name="datatype"></param>
+        /// <returns></returns>
+        private List<Device> GetEBRDTStateFromDataBase(string datatype)
+        {
+            List<Device> ListDevicetmp = new List<Device>();
+            if (datatype == "Incremental")
+            {
+                #region 增量
+                string MediaSql = "select a.SRV_PHYSICAL_CODE,a.SRV_LOGICAL_CODE_GB,a.SRV_RMT_STATUS,b.powersupplystatus from SRV a inner join Srv_Status b on a.SRV_PHYSICAL_CODE = b.srv_physical_code";
+                DataTable dtMedia = mainForm.dba.getQueryInfoBySQL(MediaSql);
+                if (dtMedia.Rows.Count>0)
+                {
+                    List<IncrementalEBRDTState> Listtmp = new List<IncrementalEBRDTState>();
+                    foreach (DataRow item in dtMedia.Rows)
+                    {
+                        IncrementalEBRDTState pp = new IncrementalEBRDTState();
+                        pp.powersupplystatus = item["powersupplystatus"].ToString();
+                        pp.SRV_LOGICAL_CODE_GB= item["SRV_LOGICAL_CODE_GB"].ToString();
+                        pp.SRV_PHYSICAL_CODE = item["SRV_PHYSICAL_CODE"].ToString();
+                        pp.SRV_RMT_STATUS = item["SRV_RMT_STATUS"].ToString();
+                        Listtmp.Add(pp);
+                    }
+                  if(!CheckList(Listtmp, SingletonInfo.GetInstance().ListIncrementalEBRDTState))  
+                    {
+                        foreach (IncrementalEBRDTState item in Listtmp)
+                        {
+                            IncrementalEBRDTState selectone = SingletonInfo.GetInstance().ListIncrementalEBRDTState.Find(c => c.SRV_PHYSICAL_CODE.Equals(item.SRV_PHYSICAL_CODE));
+                            if (selectone != null)
+                            {
+                                if (!selectone.Equals(item))
+                                {
+                                    selectone = item;
+                                    Device pp = new Device();
+                                    pp.EBRID = item.SRV_LOGICAL_CODE_GB;
+
+                                    if (item.SRV_RMT_STATUS == "离线")
+                                    {
+                                        pp.StateCode = "3";
+                                    }
+                                    else
+                                    {
+                                        string statustmp = item.powersupplystatus;
+                                        if (statustmp.Contains("广播"))
+                                        {
+                                            pp.StateCode = "5";
+                                        }
+                                        if (statustmp.Contains("关机"))
+                                        {
+                                            pp.StateCode = "2";
+                                        }
+                                        if (statustmp.Contains("开机"))
+                                        {
+                                            pp.StateCode = "1";
+                                        }
+                                    }
+                                    ListDevicetmp.Add(pp);
+
+                                }
+                            }
+                            else
+                            {
+                                //说明是新增的终端
+                                Device pp = new Device();
+                                pp.EBRID = item.SRV_LOGICAL_CODE_GB;
+                                string statustmp = item.powersupplystatus;
+                                if (statustmp.Contains("广播"))
+                                {
+                                    pp.StateCode = "5";
+                                }
+                                if (statustmp.Contains("关机"))
+                                {
+                                    pp.StateCode = "2";
+                                }
+                                if (statustmp.Contains("开机"))
+                                {
+                                    pp.StateCode = "1";
+                                }
+                                ListDevicetmp.Add(pp);
+                                SingletonInfo.GetInstance().ListIncrementalEBRDTState.Add(item);
+                            }
+                        }
+                    }
+                    else
+                    {
+                        MessageBox.Show("终端状态没有发生变化");
+                    }
+                }
+                #endregion
+            }
+            else
+            {
+                #region 全量
+                //全量终端信息  包括没有回传功能的设备
+                string MediaSql1 = "select SRV_PHYSICAL_CODE,SRV_LOGICAL_CODE_GB,SRV_RMT_STATUS,SRV_RMT_SWITCH from SRV";
+                string MediaSql2 = "select srv_physical_code,powersupplystatus from Srv_Status";
+
+                DataTable dtMedia1 = mainForm.dba.getQueryInfoBySQL(MediaSql1);
+                DataTable dtMedia2 = mainForm.dba.getQueryInfoBySQL(MediaSql2);
+                foreach (DataRow item1 in dtMedia1.Rows)
+                {
+                    if (item1["SRV_RMT_SWITCH"].ToString() == "启用")
+                    {
+                        //带回传功能的终端
+                        foreach (DataRow item2 in dtMedia2.Rows)
+                        {
+                            if (item2["srv_physical_code"].ToString()== item1["SRV_PHYSICAL_CODE"].ToString())
+                            {
+                                Device pp = new Device();
+                                pp.EBRID = item1["SRV_LOGICAL_CODE_GB"].ToString();
+
+                                if (item1["SRV_RMT_STATUS"].ToString() == "离线")
+                                {
+                                    pp.StateCode = "3";
+                                }
+                                else
+                                {
+                                    string statustmp = item2["powersupplystatus"].ToString();
+                                    if (statustmp.Contains("广播"))
+                                    {
+                                        pp.StateCode = "5";
+                                    }
+                                    if (statustmp.Contains("关机"))
+                                    {
+                                        pp.StateCode = "2";
+                                    }
+                                    if (statustmp.Contains("开机"))
+                                    {
+                                        pp.StateCode = "1";
+                                    }
+                                }
+                                ListDevicetmp.Add(pp);
+                            }
+                        }
+                    }
+                    else
+                    {
+                        //不带回传功能的终端
+                        Device pp = new Device();
+                        pp.EBRID = item1["SRV_LOGICAL_CODE_GB"].ToString();
+                        pp.StateCode = "1";//没有回传，不知道具体状态，先强制赋值  20190111
+                        ListDevicetmp.Add(pp);
+
+                    }
+                }
+                #endregion
+            }
+            return ListDevicetmp;
+        }
+
+
+        private bool CheckList(List<IncrementalEBRDTState>List1,List<IncrementalEBRDTState>List2)
+        {
+            bool flag = true;
+            if (List1.Count == List2.Count)
+            {
+                foreach (IncrementalEBRDTState item in List1)
+                {
+                    foreach (var item1 in List2)
+                    {
+                        if (item1.SRV_LOGICAL_CODE_GB == item.SRV_LOGICAL_CODE_GB)
+                        {
+                            //被实例化的对象，是必须分属性一一对比的，没办法一次性对比。
+                            if (item1.powersupplystatus != item.powersupplystatus)
+                            {
+                                flag = false;
+                                break;
+                            }
+
+                            if (item1.SRV_RMT_STATUS != item.SRV_RMT_STATUS)
+                            {
+                                flag = false;
+                                break;
+                            }
+
+                            if (item1.SRV_PHYSICAL_CODE != item.SRV_PHYSICAL_CODE)
+                            {
+                                flag = false;
+                                break;
+                            }
+
+                        }
+                    }
+                }
+            }
+            else
+            {
+                flag = false;
+            }
+            return flag;
+        }
+        /// <summary>
         /// ccplayer推流播放停止计时
         /// </summary>
         /// <param name="sender"></param>
@@ -3208,14 +2839,14 @@ namespace EmergencyBroadcastingDockingPlatform
         private void btn_InfroState_Click(object sender, EventArgs e)
         {
             string StateFaleText = btn_InfroState.Text;
-            if (StateFaleText == "开启信息状态上报")
+            if (StateFaleText == "信息状态上报-未开启")
             {
                 tSrvState.Enabled = true;
                 tSrvInfo.Enabled = true;
                 tTerraceInfrom.Enabled = true;
                 tTerraceState.Enabled = true;
                 //InfromActiveTime.Enabled = true;
-                btn_InfroState.Text = "关闭信息状态上报";
+                btn_InfroState.Text = "信息状态上报-已开启";
             }
             else
             {
@@ -3224,7 +2855,7 @@ namespace EmergencyBroadcastingDockingPlatform
                 tTerraceInfrom.Enabled = false;
                 tTerraceState.Enabled = false;
                 //InfromActiveTime.Enabled = false;
-                btn_InfroState.Text = "开启信息状态上报";
+                btn_InfroState.Text = "信息状态上报-未开启";
             }
         }
 
@@ -3232,15 +2863,15 @@ namespace EmergencyBroadcastingDockingPlatform
         private void btn_HreartState_Click(object sender, EventArgs e)
         {
             string StateFaleText = btn_HreartState.Text;
-            if (StateFaleText == "开启心跳状态上报")
+            if (StateFaleText == "心跳状态上报-未开启")
             {
                 t.Enabled = true;
-                btn_HreartState.Text = "关闭心跳状态上报";
+                btn_HreartState.Text = "心跳状态上报-已开启";
             }
             else
             {
                 t.Enabled = false;
-                btn_HreartState.Text = "开启心跳状态上报";
+                btn_HreartState.Text = "心跳状态上报-未开启";
             }
         }
 
@@ -3248,19 +2879,17 @@ namespace EmergencyBroadcastingDockingPlatform
         {
             //EBMVerifyState
             string StateFaleText = btn_Verify.Text;
-            if (StateFaleText == "人工审核状态")
+            if (StateFaleText == "人工审核-未开启")
             {
                 serverini.WriteValue("EBD", "EBMState", "True");
                 EBMVerifyState = true;//人工审核状态  true  表示已开启
-                btn_Verify.Text = "自动审核状态";
-            //    SingletonInfo.GetInstance().CheckEBMStatusFlag = "1";
+                btn_Verify.Text = "人工审核-已开启";
             }
             else
             {
                 serverini.WriteValue("EBD", "EBMState", "False");
                 EBMVerifyState = false;
-                btn_Verify.Text = "人工审核状态";
-               // SingletonInfo.GetInstance().CheckEBMStatusFlag = "0";
+                btn_Verify.Text = "人工审核-未开启";
             }
         }
 
@@ -3272,279 +2901,6 @@ namespace EmergencyBroadcastingDockingPlatform
             //    string EBMPath = this.list_PendingTask.FocusedItem.SubItems[1].Text; 
             //    AnalysisEBM(EBMPath);
             //}
-        }
-
-        /// <summary>
-        /// 手动审核下发应急包
-        /// </summary>
-        /// <param name="EBMPath">EBM路径</param>
-        private void AnalysisEBM(string EBMPath)
-        {
-            List<string> lDealTarFiles = new List<string>();
-            List<string> AudioFileListTmp = new List<string>();//收集的音频文件列表
-            List<string> AudioFileList = new List<string>();//收集的音频文件列表
-
-            SetText("解压文件：" + EBMPath.ToString(), Color.Green);
-            try
-            {
-                #region 解压
-                if (File.Exists(EBMPath))
-                {
-                    try
-                    {
-                        DeleteFolder(sUnTarPath);
-                        tar.UnpackTarFiles(EBMPath, sUnTarPath);
-                        //把压缩包解压到专门存放接收到的XML文件的文件夹下
-                        SetText("解压文件：" + EBMPath + "成功", Color.Green);
-                    }
-                    catch (Exception exa)
-                    {
-                        SetText("删除解压文件夹：" + sUnTarPath + "文件失败!错误信息：" + exa.Message, Color.Red);
-                    }
-                }
-                #endregion 解压
-            }
-            catch (Exception ex)
-            {
-                Log.Instance.LogWrite("解压出错：" + ex.Message);
-            }
-            try
-            {
-                string[] xmlfilenames = Directory.GetFiles(sUnTarPath, "*.xml");//从解压XML文件夹下获取解压的XML文件名
-                string sTmpFile = string.Empty;
-                string sAnalysisFileName = "";
-                string sSignFileName = "";
-
-                for (int i = 0; i < xmlfilenames.Length; i++)
-                {
-                    sTmpFile = Path.GetFileName(xmlfilenames[i]);
-                    if (sTmpFile.ToUpper().IndexOf("EBDB") > -1 && sTmpFile.ToUpper().IndexOf("EBDS_EBDB") < 0)
-                    {
-                        sAnalysisFileName = xmlfilenames[i];
-                    }
-                    else if (sTmpFile.ToUpper().IndexOf("EBDS_EBDB") > -1)//签名文件
-                    {
-                        sSignFileName = xmlfilenames[i];//签名文件
-                    }
-                }
-                DeleteFolder(sSourcePath);//删除原有XML发送文件的文件夹下的XML
-
-                if (sSignFileName == "")
-                {
-                    //验证签名功能
-                }
-                else
-                {
-                    #region 签名处理
-                    Console.WriteLine("开始验证签名文件!");
-                    using (FileStream SignFs = new FileStream(sSignFileName, FileMode.Open))
-                    {
-                        StreamReader signsr = new StreamReader(SignFs, System.Text.Encoding.UTF8);
-                        string xmlsign = signsr.ReadToEnd();
-                        signsr.Close();
-                        responseXML signrp = new responseXML();//签名回复
-                        XmlDocument xmlSignDoc = new XmlDocument();
-                        try
-                        {
-                            xmlsign = XmlSerialize.ReplaceLowOrderASCIICharacters(xmlsign);
-                            xmlsign = XmlSerialize.GetLowOrderASCIICharacters(xmlsign);
-                            Signature sign = XmlSerialize.DeserializeXML<Signature>(xmlsign);
-                        }
-                        catch (Exception ex)
-                        {
-                            Log.Instance.LogWrite("签名文件错误：" + ex.Message);
-                        }
-                    }
-                    Console.WriteLine("结束验证签名文件！");
-                    #endregion End
-                }
-
-                if (sAnalysisFileName != "")
-                {
-                    using (FileStream fs = new FileStream(sAnalysisFileName, FileMode.Open))
-                    {
-                        StreamReader sr = new StreamReader(fs, Encoding.UTF8);
-                        String xmlInfo = sr.ReadToEnd();
-                        xmlInfo = xmlInfo.Replace("xmlns:xs", "xmlns");
-                        sr.Close();
-                        xmlInfo = XmlSerialize.ReplaceLowOrderASCIICharacters(xmlInfo);
-                        xmlInfo = XmlSerialize.GetLowOrderASCIICharacters(xmlInfo);
-                        ebd = XmlSerialize.DeserializeXML<EBD>(xmlInfo);
-                        if (ebd.EBM.MsgBasicInfo.MsgType == "2")
-                        {
-                            if (MessageBox.Show("请确定是否要下发关机指令", "应急关机包", MessageBoxButtons.YesNo, MessageBoxIcon.Warning)
-                                == DialogResult.Yes)
-                            {
-                                SetText("停止播发：" + DateTime.Now.ToString(), Color.Red);
-                                string strSql = string.Format("update PLAYRECORD set PR_REC_STATUS = '{0}' where PR_SourceID='{1}'", "删除", TsCmdStoreID);
-                                strSql += " update EBMInfo set EBMState=1 where SEBDID='" + SEBDIDStatusFlag + "' ";
-                                strSql += "delete from InfoVlaue";
-                                //string strSql = "update PLAYRECORD set PR_REC_STATUS = '删除'";
-                                mainForm.dba.UpdateDbBySQL(strSql);
-                                Tccplayer.Enabled = false;
-                                ccplay.StopCPPPlayer2();
-                                RealAudioFlag = false;//标记为已经执行
-                                list_PendingTask.Items.Remove(list_PendingTask.FocusedItem);
-                                return;
-                            }
-                            else
-                            {
-                                return;
-                            }
-                        }
-                        AudioFileListTmp.Clear();
-                        AudioFileList.Clear();
-                        string[] mp3files = Directory.GetFiles(sUnTarPath, "*.mp3");
-                        AudioFileListTmp.AddRange(mp3files);
-                        string[] wavfiles = Directory.GetFiles(sUnTarPath, "*.wav");
-                        AudioFileListTmp.AddRange(wavfiles);
-                        EBMInfo EBMInfo = new EBMInfo();
-                        EBMInfo.ebd = ebd;
-                        if (AudioFileListTmp.Count > 0)
-                        {
-                            EBMInfo.AudioUrl = AudioFileListTmp[0];
-                        }
-                        EBMInfo.ShowDialog();
-                        if (EBMInfo.DialogResult == DialogResult.OK)
-                        {
-                            list_PendingTask.Items.Remove(list_PendingTask.FocusedItem);
-                            string sqlstr = "";
-                            if (AudioFileListTmp.Count > 0)
-                            {
-                                string sTmpDealFile = string.Empty;
-                                string targetPath = string.Empty;
-                                string strurl = "";
-                                string sDateTime = "";
-                                string sStartTime = ebd.EBM.MsgBasicInfo.StartTime;
-                                string sEndDateTime = ebd.EBM.MsgBasicInfo.EndTime;
-                                // string sGBCode = "";
-                                string sORG_ID = "";
-                                string sAread = "";
-                                string xmlFilePath = "";
-                                //if ((AudioFlag == "2")&&(TextFirst=="2")) //拷贝xml文件
-                                {
-                                    string xmlFile = Path.GetFileName(sAnalysisFileName);
-                                    xmlFilePath = sAudioFilesFolder + "\\" + xmlFile;
-                                    File.Copy(sAnalysisFileName, xmlFilePath, true);
-                                }
-                                for (int ai = 0; ai < AudioFileListTmp.Count; ai++)
-                                {
-                                    sTmpDealFile = Path.GetFileName(AudioFileListTmp[ai]);
-                                    targetPath = sAudioFilesFolder + "\\" + sTmpDealFile;
-                                    File.Copy(AudioFileListTmp[ai], targetPath, true);
-                                    AudioFileList.Add(targetPath);
-
-
-                                    SetText("EBM开始时间: " + ebd.EBM.MsgBasicInfo.StartTime + "===>EBM结束时间: " + ebd.EBM.MsgBasicInfo.EndTime, Color.Blue);
-                                    DateTime EbStartTime = DateTime.Parse(ebd.EBM.MsgBasicInfo.StartTime).AddSeconds(2);
-                                    if (EbStartTime < DateTime.Now)
-                                    {
-                                        EbStartTime = DateTime.Now.AddSeconds(2);
-                                    }
-
-                                    sDateTime = EbStartTime.ToString("yyyy-MM-dd HH:mm:ss");  //ebd.EBM.MsgBasicInfo.StartTime;
-                                    sStartTime = EbStartTime.ToString("yyyy-MM-dd HH:mm:ss"); //ebd.EBM.MsgBasicInfo.StartTime;
-                                    sEndDateTime = ebd.EBM.MsgBasicInfo.EndTime;
-                                    if (TEST == "YES")
-                                    {
-                                        sDateTime = DateTime.Now.AddSeconds(2).ToString("yyyy-MM-dd HH:mm:ss");
-                                        sStartTime = DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss");
-                                        sEndDateTime = DateTime.Now.AddMinutes(5).ToString("yyyy-MM-dd HH:mm:ss");//ebd.EBM.MsgBasicInfo.EndTime;
-                                    }
-
-                                    SetText("开始时间: " + sDateTime + "===>结束时间: " + sEndDateTime + "是否是TEST:" + TEST, Color.Blue);
-                                    sAread = ebd.EBM.MsgContent.AreaCode; //区域
-                                    sORG_ID = ebd.EBM.EBMID;
-                                    strurl = targetPath;  //音频文件地址
-                                    // sqlstr = "insert into TsCmdStoreMedia(TsCmd_Type, TsCmd_Mode, TsCmd_UserID, TsCmd_ValueID, TsCmd_Params, TsCmd_Date, TsCmd_Status,TsCmd_StartTime,TsCmd_EndTime,TsCmd_XmlFile)" +
-                                    //        "values('播放音频', '" + sAread + "', 1, '" + sORG_ID + "', '" + strurl + "', '" + sDateTime + "', 0,'" + sStartTime + "','" + sEndDateTime + "','" + xmlFilePath + "')";
-                                    //int identityID = mainForm.dba.UpdateDbBySQLRetID(sqlstr);
-                                    //Console.WriteLine(identityID);
-                                    string sORG_ID2 = GetORG_ID(ebd.EBM.MsgContent.AreaCode) ;
-                                    string paramValue = "1~" + strurl + "~0~1000~128~0~1~1";
-                                    if ((PlayType == "2"))
-                                    {
-                                        SetText("音频文件存库，将在指定时间内播放", Color.Blue);
-                                        sqlstr = "insert into TsCmdStore(TsCmd_Type, TsCmd_Mode, TsCmd_UserID, TsCmd_ValueID, TsCmd_Params, TsCmd_Date,TsCmd_ExcuteTime,TsCmd_SaveTime, TsCmd_Status,TsCmd_EndTime,TsCmd_Note)" +
-                                           "values('播放视频', '区域', 1, " + sORG_ID2 + ", '" + paramValue + "', " + "'" + sDateTime + "'" + ",'" + sDateTime + "','" + sDateTime + "', 0,'" + sEndDateTime + "'," + "'-1'" + ")";
-                                        //sqlstr = "insert into TsCmdStore(TsCmd_Type, TsCmd_Mode, TsCmd_UserID, TsCmd_ValueID, TsCmd_Params, TsCmd_Date,TsCmd_ExcuteTime,TsCmd_SaveTime, TsCmd_Status,TsCmd_EndTime,TsCmd_Note)" +
-                                        //   "values('播放视频', '区域', 1, " + sORG_ID2 + ", '1~" + strurl + "~0~1200~192~0~1~1', " + "'" + sDateTime + "'" + ",'" + sDateTime + "','" + sDateTime + "', 0,'" + sEndDateTime + "'," + "'-1'" + ")";
-                                        //int iback = mainForm.dba.getResultIDBySQL(sqlstr, "TsCmdStore");
-                                        TsCmdStoreID = mainForm.dba.UpdateDbBySQLRetID(sqlstr).ToString();
-                                        //paramValue = "1~D:\\rhtest_6_1\\apache-tomcat-7.0.69\\webapps\\ch-eoc\\upload/6666.mp3~0~1200~192~0~1~1";//1~D:\\rhtest_6_1\\apache-tomcat-7.0.69\\webapps\\ch-eoc\\upload/6666.mp3~0~1000~128~0~1~1
-                                        SendMQOrder(1, paramValue, TsCmdStoreID);//MQ发送
-                                        Thread.Sleep(500);
-                                        Console.WriteLine(TsCmdStoreID);
-                                    }
-                                }
-                            }
-                            else//文本转语音
-                            {
-                                SetText("EBM开始时间: " + ebd.EBM.MsgBasicInfo.StartTime + "===>EBM结束时间: " + ebd.EBM.MsgBasicInfo.EndTime, Color.Blue);
-                                DateTime EBStartTime = DateTime.Parse(ebd.EBM.MsgBasicInfo.StartTime).AddSeconds(2);
-                                if (EBStartTime < DateTime.Now)
-                                {
-                                    EBStartTime = DateTime.Now.AddSeconds(2);
-                                }
-                                string sStartTime = EBStartTime.ToString("yyyy-MM-dd HH:mm:ss"); //ebd.EBM.MsgBasicInfo.StartTime;
-                                string sDateTime = EBStartTime.ToString("yyyy-MM-dd HH:mm:ss");//ebd.EBM.MsgBasicInfo.StartTime;
-                                string sEndDateTime = ebd.EBM.MsgBasicInfo.EndTime;
-                                ccplayerStopTime = DateTime.Parse(sEndDateTime);
-                                if (TEST == "YES")
-                                {
-                                    sStartTime = DateTime.Now.AddSeconds(2).ToString("yyyy-MM-dd HH:mm:ss");
-                                    sDateTime = DateTime.Now.AddSeconds(2).ToString("yyyy-MM-dd HH:mm:ss");
-                                    sEndDateTime = DateTime.Now.AddMinutes(5).ToString("yyyy-MM-dd HH:mm:ss");//ebd.EBM.MsgBasicInfo.EndTime;
-                                    ccplayerStopTime = DateTime.Now.AddMinutes(2);
-
-                                }
-                                SetText("实时流开始时间>>>>" + sStartTime + "----结束时间>>>" + ccplayerStopTime.ToString("yyyy-MM-dd HH:mm:ss") + "是否是TEST:" + TEST, Color.Blue);
-                                string strPID = m_nAudioPIDID + "~1";
-                                string sORG_ID = GetORG_ID(ebd.EBM.MsgContent.AreaCode);//((int)mainForm.dba.getQueryResultBySQL(sqlstr)).ToString();
-                                sqlstr = "insert into TsCmdStore(TsCmd_Type, TsCmd_Mode, TsCmd_UserID, TsCmd_ValueID, TsCmd_Params, TsCmd_Date, TsCmd_Status,TsCmd_EndTime,TsCmd_Note)" +
-                                        "values('音源播放', '区域', 1, " + sORG_ID + ", '" + strPID + "', '" + sDateTime + "', 0,'" + sEndDateTime + "'," + "'-1'" + ")";
-
-                                TsCmdStoreID = mainForm.dba.UpdateDbBySQLRetID(sqlstr).ToString();
-                                SendMQOrder(2, strPID, TsCmdStoreID);//MQ发送
-                                Thread.Sleep(500);
-                                SetText("立即播放音频延时开始：" + DateTime.Now.ToString(), Color.Blue);
-                                Thread.Sleep(iMediaDelayTime);//延迟10秒
-                                Application.DoEvents();
-                                SetText("立即播放音频开始：" + DateTime.Now.ToString(), Color.Blue);
-                                string FileNameNum = "";
-                                FileNameNum = rdMQFileName.Next(00, 99).ToString();
-                                string Message = ebd.EBM.MsgContent.MsgDesc;
-                                SetText(Message, Color.Olive);
-                                MQDLL.SendMessageMQ("PACKETTYPE~TTS|CONTENT~" + Message + "|FILE~" + FileNameNum + ".mp3");
-                                Thread.Sleep(5000);
-                                ccplay.TsCmdStoreID = TsCmdStoreID;//PlayRecord停止的标示
-                                m_ccplayURL = AudioCloudIP + FileNameNum + ".wav";     //"udp://@" + m_StreamPortURL;
-                                if (ccplay.m_bPlayFlag == false)
-                                {
-                                    ccplay.m_bPlayFlag = true;
-                                }
-                                else
-                                {
-                                    ccplay.StopCPPPlayer2();
-                                    Thread.Sleep(1000);
-                                    ccplayerthread.Abort();
-                                    Thread.Sleep(1000);
-                                    ccplayerthread = new Thread(CPPPlayerThread);
-                                    ccplayerthread.Start();
-                                }
-                            }
-                            #region SaveEBDInfo
-                            //if (SaveEBD(ebd) == -1)
-                            //    Console.WriteLine("Error: 保存EBMInfo出错");
-                            #endregion
-                        }
-                    }
-                }
-            }
-            catch (Exception ex)
-            {
-                Console.WriteLine(ex.Message);
-            }
         }
 
         /// <summary>
@@ -3841,24 +3197,6 @@ namespace EmergencyBroadcastingDockingPlatform
         }
 
 
-        /// <summary>
-        /// MQ消息接收  字符串
-        /// </summary>
-        /// <param name="message"></param>
-        private void consumer_listener(IMessage message)
-        {
-            try
-            {
-                string strMsg;
-                ITextMessage msg = (ITextMessage)message;
-                strMsg = msg.Text;
-                Log.Instance.LogWrite("MQ接收信息打印：" + strMsg);
-            }
-            catch (Exception ex)
-            {
-                Log.Instance.LogWrite(ex.Message);
-            }
-        }
 
         /// <summary>
         ///  MQ消息接收   键值对
@@ -4186,12 +3524,5 @@ namespace EmergencyBroadcastingDockingPlatform
             return true;
         }
 
-        private void button5_Click_1(object sender, EventArgs e)
-        {
-            string ID = "7";
-            string EBDDID = "100102320000000000010000000001010861";
-            string EBMPath = sRevTarPath+"//"+ EBDDID + ".tar";
-            AnalysisEBMCheckOver(EBMPath);
-        }
     }
 }

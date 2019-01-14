@@ -53,7 +53,7 @@ namespace EmergencyBroadcastingDockingPlatform
         public string PlatformLongitude;//所在平台经度
         public string PlatformLatitude;//所在平台维度
 
-
+        public List<IncrementalEBRDTState> ListIncrementalEBRDTState;//终端状态增量信息列表 初始值来自数据表 Srv_Status  新增于20190111
 
         private SingletonInfo()                                                                 
         {
@@ -74,7 +74,6 @@ namespace EmergencyBroadcastingDockingPlatform
             RemoteFTPpath = "";
             m_mq = null;
             m_mq_checkEBM = null;
-
             DicTsCmd_ID = new Dictionary<string, string>();
             DicPlayingThread = new Dictionary<string, List<Thread>>();
 
@@ -86,6 +85,7 @@ namespace EmergencyBroadcastingDockingPlatform
             PlatformPhoneNumber = "";
             PlatformLongitude = "";
             PlatformLatitude = "";
+            ListIncrementalEBRDTState = new List<IncrementalEBRDTState>();
 
         }
         public static SingletonInfo GetInstance()

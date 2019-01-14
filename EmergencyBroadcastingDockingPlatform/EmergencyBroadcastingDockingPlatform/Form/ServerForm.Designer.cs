@@ -100,9 +100,9 @@
             this.btn_Verify.Anchor = ((System.Windows.Forms.AnchorStyles)((System.Windows.Forms.AnchorStyles.Top | System.Windows.Forms.AnchorStyles.Right)));
             this.btn_Verify.Location = new System.Drawing.Point(369, 23);
             this.btn_Verify.Name = "btn_Verify";
-            this.btn_Verify.Size = new System.Drawing.Size(94, 42);
+            this.btn_Verify.Size = new System.Drawing.Size(105, 42);
             this.btn_Verify.TabIndex = 7;
-            this.btn_Verify.Text = "人工审核状态";
+            this.btn_Verify.Text = "人工审核-已开启";
             this.btn_Verify.UseVisualStyleBackColor = true;
             this.btn_Verify.Click += new System.EventHandler(this.btn_Verify_Click);
             // 
@@ -129,9 +129,9 @@
             this.btnStart.Anchor = ((System.Windows.Forms.AnchorStyles)((System.Windows.Forms.AnchorStyles.Bottom | System.Windows.Forms.AnchorStyles.Right)));
             this.btnStart.Location = new System.Drawing.Point(500, 23);
             this.btnStart.Name = "btnStart";
-            this.btnStart.Size = new System.Drawing.Size(107, 42);
+            this.btnStart.Size = new System.Drawing.Size(118, 42);
             this.btnStart.TabIndex = 0;
-            this.btnStart.Text = "启动服务";
+            this.btnStart.Text = "服务-未开启";
             this.btnStart.UseVisualStyleBackColor = true;
             this.btnStart.Click += new System.EventHandler(this.btnStart_Click);
             // 
@@ -424,7 +424,7 @@
             this.btn_HreartState.Name = "btn_HreartState";
             this.btn_HreartState.Size = new System.Drawing.Size(188, 25);
             this.btn_HreartState.TabIndex = 10;
-            this.btn_HreartState.Text = "开启心跳状态上报";
+            this.btn_HreartState.Text = "心跳状态上报-未开启";
             this.btn_HreartState.UseVisualStyleBackColor = true;
             this.btn_HreartState.Click += new System.EventHandler(this.btn_HreartState_Click);
             // 
@@ -436,7 +436,7 @@
             this.btn_InfroState.Name = "btn_InfroState";
             this.btn_InfroState.Size = new System.Drawing.Size(188, 25);
             this.btn_InfroState.TabIndex = 11;
-            this.btn_InfroState.Text = "开启信息状态上报";
+            this.btn_InfroState.Text = "信息状态上报-未开启";
             this.btn_InfroState.UseVisualStyleBackColor = true;
             this.btn_InfroState.Click += new System.EventHandler(this.btn_InfroState_Click);
             // 

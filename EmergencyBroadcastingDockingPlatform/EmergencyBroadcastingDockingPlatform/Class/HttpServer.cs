@@ -481,8 +481,10 @@ namespace EmergencyBroadcastingDockingPlatform
                     //处理接收的文件
                     bool verifySuccess = false;
                     DealTarBack(sFilePath, out verifySuccess);
-                   // if (verifySuccess)  测试注释20181221
+                    if (verifySuccess)
+                    {
                         ServerForm.lRevFiles.Add(sFilePath);//完成接收文件后把文件增加到处理列表上去
+                    }  
                 }
                 catch (Exception em)
                 {
@@ -565,46 +567,46 @@ namespace EmergencyBroadcastingDockingPlatform
                         byte[] xmlArray = File.ReadAllBytes(sAnalysisFileName);
 
                         #region 签名处理
-                        //Console.WriteLine("开始验证签名文件!");
-                        //using (FileStream SignFs = new FileStream(sSignFileName, FileMode.Open))
-                        //{
-                        //    StreamReader signsr = new StreamReader(SignFs, Encoding.UTF8);
-                        //    string xmlsign = signsr.ReadToEnd();
-                        //    signsr.Close();
-                        //    responseXML signrp = new responseXML();//签名回复
-                        //    XmlDocument xmlSignDoc = new XmlDocument();
-                        //    try
-                        //    {
-                        //        int nDeviceHandle = (int)ServerForm.mainFrm.phDeviceHandle;
-                        //        xmlsign = XmlSerialize.ReplaceLowOrderASCIICharacters(xmlsign);
-                        //        xmlsign = XmlSerialize.GetLowOrderASCIICharacters(xmlsign);
-                        //        Signature sign = XmlSerialize.DeserializeXML<Signature>(xmlsign);
-                        //        xmlsign = XmlSerialize.ReplaceLowOrderASCIICharacters(xmlsign);
-                        //        xmlsign = XmlSerialize.GetLowOrderASCIICharacters(xmlsign);
-                        //        string PucStr = sign.SignatureValue;
-                        //        byte[] pucsingVi = Encoding.UTF8.GetBytes(sign.SignatureValue);
+                        Console.WriteLine("开始验证签名文件!");
+                        using (FileStream SignFs = new FileStream(sSignFileName, FileMode.Open))
+                        {
+                            StreamReader signsr = new StreamReader(SignFs, Encoding.UTF8);
+                            string xmlsign = signsr.ReadToEnd();
+                            signsr.Close();
+                            responseXML signrp = new responseXML();//签名回复
+                            XmlDocument xmlSignDoc = new XmlDocument();
+                            try
+                            {
+                                int nDeviceHandle = (int)ServerForm.mainFrm.phDeviceHandle;
+                                xmlsign = XmlSerialize.ReplaceLowOrderASCIICharacters(xmlsign);
+                                xmlsign = XmlSerialize.GetLowOrderASCIICharacters(xmlsign);
+                                Signature sign = XmlSerialize.DeserializeXML<Signature>(xmlsign);
+                                xmlsign = XmlSerialize.ReplaceLowOrderASCIICharacters(xmlsign);
+                                xmlsign = XmlSerialize.GetLowOrderASCIICharacters(xmlsign);
+                                string PucStr = sign.SignatureValue;
+                                byte[] pucsingVi = Encoding.UTF8.GetBytes(sign.SignatureValue);
 
-                        //        //0是签名通过
-                        //        var result = ServerForm.mainFrm.usb.PlatformVerifySignature(nDeviceHandle, 1, xmlArray, xmlArray.Length, pucsingVi);
-                        //        PlatformVerifySignatureresule = result == 0;
-                        //        Log.Instance.LogWrite(PlatformVerifySignatureresule ? "签名验证成功" : "签名验证失败-" + result);
-                        //    }
-                        //    catch (Exception ex)
-                        //    {
-                        //        Log.Instance.LogWrite("签名文件错误：" + ex.Message);
-                        //    }
-                        //}
-                        //Console.WriteLine("结束验证签名文件！");
+                                //0是签名通过
+                                var result = ServerForm.mainFrm.usb.PlatformVerifySignature(nDeviceHandle, 1, xmlArray, xmlArray.Length, pucsingVi);
+                                PlatformVerifySignatureresule = result == 0;
+                                Log.Instance.LogWrite(PlatformVerifySignatureresule ? "签名验证成功" : "签名验证失败-" + result);
+                            }
+                            catch (Exception ex)
+                            {
+                                Log.Instance.LogWrite("签名文件错误：" + ex.Message);
+                            }
+                        }
+                        Console.WriteLine("结束验证签名文件！");
                         #endregion End
                     }
 
                     ServerForm.DeleteFolder(ServerForm.strBeSendFileMakeFolder);//删除原有XML发送文件的文件夹下的XML
-                    //if (!PlatformVerifySignatureresule && myEBDType != "ConnectionCheck")
-                    //{
-                    //    //验签失败
-                    //    CurrencyTarBack(ebdb, "4");
-                    //    return;
-                    //}
+                    if (!PlatformVerifySignatureresule && myEBDType != "ConnectionCheck")
+                    {
+                        //验签失败
+                        CurrencyTarBack(ebdb, "4");
+                        return;
+                    }
                     Console.WriteLine("要解析文件：" + sAnalysisFileName);
 
                     #region 通用反馈  20181210

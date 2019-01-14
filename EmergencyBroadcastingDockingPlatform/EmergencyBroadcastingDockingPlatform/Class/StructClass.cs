@@ -62,5 +62,53 @@ namespace EmergencyBroadcastingDockingPlatform
         public string GB_CODE { get; set; }
     }
 
+    /// <summary>
+    /// 增量终端状态
+    /// </summary>
+    public class IncrementalEBRDTState
+    {
+        /// <summary>
+        /// 23位资源码
+        /// </summary>
+        public string SRV_LOGICAL_CODE_GB { get; set; }
+        /// <summary>
+        /// 终端物理码
+        /// </summary>
+       public string  SRV_PHYSICAL_CODE { get; set; }
+        /// <summary>
+        ///在线/离线状态
+        /// </summary>
+        public string SRV_RMT_STATUS { get; set; }
+        /// <summary>
+        /// 终端播放状态   开机、关机、播放中
+        /// </summary>
+        public string powersupplystatus { get; set; }
 
+        //重写Equals方法
+
+        public override bool Equals(object obj)
+        {
+            if (obj == null)
+            {
+                return false;
+            }
+            if ((obj.GetType().Equals(this.GetType())) == false)
+            {
+                return false;
+            }
+            IncrementalEBRDTState temp = null;
+            temp = (IncrementalEBRDTState)obj;
+
+            return this.SRV_LOGICAL_CODE_GB.Equals(temp.SRV_LOGICAL_CODE_GB) && this.SRV_PHYSICAL_CODE.Equals(temp.SRV_PHYSICAL_CODE)&& this.SRV_RMT_STATUS.Equals(temp.SRV_RMT_STATUS) && this.powersupplystatus.Equals(temp.powersupplystatus);
+
+        }
+
+        //重写GetHashCode方法（重写Equals方法必须重写GetHashCode方法，否则发生警告
+
+        public override int GetHashCode()
+        {
+            return this.SRV_LOGICAL_CODE_GB.GetHashCode() + this.SRV_PHYSICAL_CODE.GetHashCode() + this.SRV_RMT_STATUS.GetHashCode() + this.powersupplystatus.GetHashCode();
+        }
+
+    }
 }
