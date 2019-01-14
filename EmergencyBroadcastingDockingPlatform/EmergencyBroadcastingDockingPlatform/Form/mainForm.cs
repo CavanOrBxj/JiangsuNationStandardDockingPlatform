@@ -129,6 +129,7 @@ namespace EmergencyBroadcastingDockingPlatform
                         SingletonInfo.GetInstance().PlatformPhoneNumber = dt.Rows[i]["phone"].ToString();
                         SingletonInfo.GetInstance().Longitude= dt.Rows[i]["longitude"].ToString();
                         SingletonInfo.GetInstance().Latitude = dt.Rows[i]["latitude"].ToString();
+                        SingletonInfo.GetInstance().PlatformAddress= dt.Rows[i]["address"].ToString();
                     }
                     else
                         if (dt.Rows[i]["platformType"].ToString() == "-1")
