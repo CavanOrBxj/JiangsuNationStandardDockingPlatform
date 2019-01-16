@@ -12,7 +12,6 @@ namespace EmergencyBroadcastingDockingPlatform
 {
     public partial class mainForm : Form
     {
-        public IniFiles ini;
         //子窗体定义
         private ServerIPSetForm setipFrm;
         private ServerSetForm setServerFrm;
@@ -30,7 +29,7 @@ namespace EmergencyBroadcastingDockingPlatform
         public string strSourceType = "";
         public string strSourceName = "";
         public string strSourceID = "";
-        public static string m_UsbPwsSupport = "";
+       
         public static SerialPort comm = new SerialPort();
         public static SerialPort sndComm = new SerialPort();//临时发送语音用
 
@@ -47,16 +46,17 @@ namespace EmergencyBroadcastingDockingPlatform
         public mainForm()
         {
             InitializeComponent();
-            ini = new IniFiles(@Application.StartupPath + "\\Config.ini");
+            SingletonInfo.GetInstance().serverini = new IniFiles(@Application.StartupPath + "\\Config.ini");
         }
 
         private void mainForm_Load(object sender, EventArgs e)
         {
             try
             {
-                m_UsbPwsSupport = ini.ReadValue("USBPSW", "USBPSWSUPPART");
+                SingletonInfo.GetInstance().m_UsbPwsSupport = SingletonInfo.GetInstance().serverini.ReadValue("USBPSW", "USBPSWSUPPART");
+                SingletonInfo.GetInstance().IsCompatible= SingletonInfo.GetInstance().serverini.ReadValue("CompatibleMode", "IsCompatible")=="1"?true:false;
                 //打开密码器
-                if (m_UsbPwsSupport == "1")
+                if (SingletonInfo.GetInstance().m_UsbPwsSupport == "1"&& !SingletonInfo.GetInstance().IsCompatible)
                 {
                     try
                     {
@@ -85,7 +85,11 @@ namespace EmergencyBroadcastingDockingPlatform
 
                 GetAuditData();
                 GetPlatformInfo();
-                this.Text ="应急广播消息服务V"+ Application.ProductVersion;
+
+                this.Invoke(new Action(() =>
+                {
+                    this.Text = "应急广播消息服务V" + Application.ProductVersion;
+                }));
             }
             catch (Exception ex)
             {
@@ -113,32 +117,49 @@ namespace EmergencyBroadcastingDockingPlatform
         #region  从数据库获取平台基本信息
         private void GetPlatformInfo()
         {
-            string sqlstr = "select * from PlatformResource";
-            DataTable dt = mainForm.dba.getQueryInfoBySQL(sqlstr);
-            if (dt.Rows.Count>0)
+            if (SingletonInfo.GetInstance().IsCompatible)
             {
-                for (int i = 0; i < dt.Rows.Count; i++)
+                //兼容版本  平台基本数据从配置文件读取
+                SingletonInfo.GetInstance().CurrentURL = SingletonInfo.GetInstance().serverini.ReadValue("CompatibleMode", "URL");
+                SingletonInfo.GetInstance().CurrentResourcecode = SingletonInfo.GetInstance().serverini.ReadValue("CompatibleMode", "HBRONO");
+                SingletonInfo.GetInstance().PlatformEBRName = SingletonInfo.GetInstance().serverini.ReadValue("CompatibleMode", "EBRName");
+                SingletonInfo.GetInstance().PlatformContact = SingletonInfo.GetInstance().serverini.ReadValue("CompatibleMode", "Contact");
+                SingletonInfo.GetInstance().PlatformPhoneNumber = SingletonInfo.GetInstance().serverini.ReadValue("CompatibleMode", "PhoneNumber");
+                SingletonInfo.GetInstance().Longitude = SingletonInfo.GetInstance().serverini.ReadValue("CompatibleMode", "Longitude");
+                SingletonInfo.GetInstance().Latitude = SingletonInfo.GetInstance().serverini.ReadValue("CompatibleMode", "Latitude");
+                SingletonInfo.GetInstance().PlatformAddress = SingletonInfo.GetInstance().serverini.ReadValue("CompatibleMode", "Address");
+                SingletonInfo.GetInstance().SendTarAddress = SingletonInfo.GetInstance().serverini.ReadValue("CompatibleMode", "BJURL");
+            }
+            else
+            {
+                //不是兼容版本 平台基本数据需要从数据库获取
+                string sqlstr = "select * from PlatformResource";
+                DataTable dt = mainForm.dba.getQueryInfoBySQL(sqlstr);
+                if (dt.Rows.Count > 0)
                 {
+                    for (int i = 0; i < dt.Rows.Count; i++)
+                    {
 
-                    if (dt.Rows[i]["platformType"].ToString() == "1")
-                    {
-                        SingletonInfo.GetInstance().CurrentURL = dt.Rows[i]["ipAddress"].ToString();
-                        SingletonInfo.GetInstance().CurrentResourcecode = dt.Rows[i]["sourceCode"].ToString();
-                        SingletonInfo.GetInstance().PlatformEBRName = dt.Rows[i]["platformName"].ToString();
-                        SingletonInfo.GetInstance().PlatformContact = dt.Rows[i]["contact"].ToString();
-                        SingletonInfo.GetInstance().PlatformPhoneNumber = dt.Rows[i]["phone"].ToString();
-                        SingletonInfo.GetInstance().Longitude= dt.Rows[i]["longitude"].ToString();
-                        SingletonInfo.GetInstance().Latitude = dt.Rows[i]["latitude"].ToString();
+                        if (dt.Rows[i]["platformType"].ToString() == "1")
+                        {
+                            SingletonInfo.GetInstance().CurrentURL = dt.Rows[i]["ipAddress"].ToString();
+                            SingletonInfo.GetInstance().CurrentResourcecode = dt.Rows[i]["sourceCode"].ToString();
+                            SingletonInfo.GetInstance().PlatformEBRName = dt.Rows[i]["platformName"].ToString();
+                            SingletonInfo.GetInstance().PlatformContact = dt.Rows[i]["contact"].ToString();
+                            SingletonInfo.GetInstance().PlatformPhoneNumber = dt.Rows[i]["phone"].ToString();
+                            SingletonInfo.GetInstance().Longitude = dt.Rows[i]["longitude"].ToString();
+                            SingletonInfo.GetInstance().Latitude = dt.Rows[i]["latitude"].ToString();
+                            SingletonInfo.GetInstance().PlatformAddress = dt.Rows[i]["address"].ToString();
+                        }
+                        else
+                            if (dt.Rows[i]["platformType"].ToString() == "-1")
+                        {
+                            SingletonInfo.GetInstance().SendTarAddress = dt.Rows[i]["ipAddress"].ToString();
+                        }
+
                     }
-                    else
-                        if (dt.Rows[i]["platformType"].ToString() == "-1")
-                    {
-                        SingletonInfo.GetInstance().SendTarAddress = dt.Rows[i]["ipAddress"].ToString();
-                    }
-                    
                 }
             }
-          
         }
         #endregion
 
@@ -282,7 +303,7 @@ namespace EmergencyBroadcastingDockingPlatform
             this.ShowInTaskbar = false;
             this.nIcon.Visible = true;
             //关闭密码器
-            if (m_UsbPwsSupport == "1")
+            if (SingletonInfo.GetInstance().m_UsbPwsSupport == "1" && !SingletonInfo.GetInstance().IsCompatible)
             {
                 try
                 {
@@ -364,7 +385,7 @@ namespace EmergencyBroadcastingDockingPlatform
         /// <param name="strEBDID"></param>
         public void GenerateSignatureFile(string strPath, string strEBDID)
         {
-            if (m_UsbPwsSupport != "1")
+            if (SingletonInfo.GetInstance().m_UsbPwsSupport != "1")
             {
                 return;
             }

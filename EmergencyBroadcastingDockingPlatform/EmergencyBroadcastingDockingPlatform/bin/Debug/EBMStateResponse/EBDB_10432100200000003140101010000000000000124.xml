@@ -1,0 +1,29 @@
+<?xml version="1.0" encoding="utf-8" standalone="yes"?>
+<EBD xmlns:xs="http://www.w3.org/2001/XMLSchema">
+  <EBDVersion>1</EBDVersion>
+  <EBDID>10432100200000003140101010000000000000124</EBDID>
+  <EBDType>EBMStateResponse</EBDType>
+  <SRC>
+    <EBRID>43210020000000314010101</EBRID>
+    <URL>http://192.168.34.170:7500</URL>
+  </SRC>
+  <EBDTime>2019-01-16 17:11:46</EBDTime>
+  <RelatedEBD>
+    <EBDID>10232000000000001030101010000000000178325</EBDID>
+  </RelatedEBD>
+  <EBMStateResponse>
+    <RptTime>2019-01-16 17:11:46</RptTime>
+    <EBM>
+      <EBMID>23200000000000103010101201812200608</EBMID>
+    </EBM>
+    <BrdStateCode>2</BrdStateCode>
+    <BrdStateDesc>播发中</BrdStateDesc>
+    <ResBrdInfo>
+      <ResBrdItem>
+        <EBRPS>
+          <EBRID>43210020000000314010101</EBRID>
+        </EBRPS>
+      </ResBrdItem>
+    </ResBrdInfo>
+  </EBMStateResponse>
+</EBD>

@@ -1,22 +1,22 @@
 <?xml version="1.0" encoding="utf-8" standalone="yes"?>
 <EBD xmlns:xs="http://www.w3.org/2001/XMLSchema">
   <EBDVersion>1</EBDVersion>
-  <EBDID>10432100200000003140101010000000000000123</EBDID>
+  <EBDID>10432100200000003140101010000000000000125</EBDID>
   <EBDType>EBRDTState</EBDType>
   <SRC>
     <EBRID>43210020000000314010101</EBRID>
     <URL>http://192.168.34.170:7500</URL>
   </SRC>
-  <EBDTime>2019-01-14 10:58:02</EBDTime>
+  <EBDTime>2019-01-16 17:11:46</EBDTime>
   <EBRDTState>
     <EBRDT>
-      <RptTime>2019-01-14 10:58:02</RptTime>
+      <RptTime>2019-01-16 17:11:46</RptTime>
       <EBRID>63210020010010314010402</EBRID>
-      <StateCode>1</StateCode>
-      <StateDesc>开机/运行正常</StateDesc>
+      <StateCode>3</StateCode>
+      <StateDesc>故障</StateDesc>
     </EBRDT>
     <EBRDT>
-      <RptTime>2019-01-14 10:58:02</RptTime>
+      <RptTime>2019-01-16 17:11:46</RptTime>
       <EBRID>63210020010020314010401</EBRID>
       <StateCode>3</StateCode>
       <StateDesc>故障</StateDesc>

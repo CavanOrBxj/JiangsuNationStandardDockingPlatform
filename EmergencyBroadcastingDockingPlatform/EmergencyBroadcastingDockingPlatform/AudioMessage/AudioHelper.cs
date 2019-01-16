@@ -63,6 +63,7 @@ namespace EmergencyBroadcastingDockingPlatform.AudioMessage
                 {
                     //已经过了播放时间 不处理
                     PlayStateInterface.Untreated(AudioModel.XmlFilaPath, "0");
+                    ServerForm.SetManager("已经过了消息结束时间，消息不再播放：结束时间："+ AudioModel.PlayEndTime, Color.Red);
                 }
                 else
                 {
@@ -173,7 +174,7 @@ namespace EmergencyBroadcastingDockingPlatform.AudioMessage
         {
             try
             {
-                ServerForm.SetManager("EBM开始时间: " + AudioModel.PlayingTime + "===>EBM结束时间: " + AudioModel.PlayEndTime, Color.Green);
+               // ServerForm.SetManager("EBM开始时间: " + AudioModel.PlayingTime + "===>EBM结束时间: " + AudioModel.PlayEndTime, Color.Green);
                 ServerForm.SetManager("播放开始时间: " + AudioModel.PlayingTime + "===>播放结束时间: " + AudioModel.PlayEndTime, Color.Green);
                 ServerForm.SetManager("等待播放"+AudioModel.PlayingContent, Color.Green);
                

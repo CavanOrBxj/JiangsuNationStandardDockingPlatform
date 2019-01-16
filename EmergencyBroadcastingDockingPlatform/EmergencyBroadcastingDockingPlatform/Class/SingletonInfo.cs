@@ -55,6 +55,10 @@ namespace EmergencyBroadcastingDockingPlatform
 
         public List<IncrementalEBRDTState> ListIncrementalEBRDTState;//终端状态增量信息列表 初始值来自数据表 Srv_Status  新增于20190111
 
+        public IniFiles serverini;
+        public bool IsCompatible;//是否为兼容模式
+        public  string m_UsbPwsSupport;//支持签名验签 1:支持，2：不支持
+
         private SingletonInfo()                                                                 
         {
             Longitude = "";
@@ -86,7 +90,9 @@ namespace EmergencyBroadcastingDockingPlatform
             PlatformLongitude = "";
             PlatformLatitude = "";
             ListIncrementalEBRDTState = new List<IncrementalEBRDTState>();
-
+            serverini = null;
+            IsCompatible = false;
+            m_UsbPwsSupport = "";
         }
         public static SingletonInfo GetInstance()
         {

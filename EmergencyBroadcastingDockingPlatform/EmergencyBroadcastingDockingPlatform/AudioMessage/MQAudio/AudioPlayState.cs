@@ -7,6 +7,7 @@ using System.Data;
 using System.IO;
 using System.Xml;
 using System.Drawing;
+using EmergencyBroadcastingDockingPlatform.Class;
 
 namespace EmergencyBroadcastingDockingPlatform.AudioMessage.MQAudio
 {
@@ -53,7 +54,7 @@ namespace EmergencyBroadcastingDockingPlatform.AudioMessage.MQAudio
                 else
                 {
                     bool eb= sendEBMStateResponse(ebdsr, BrdStateCode);
-                    bool Up = UpdateState(TimingTerminalState);
+                    bool Up = UpdateState();
                     if (eb && Up)
                     {
                         flag = true;
@@ -148,23 +149,12 @@ namespace EmergencyBroadcastingDockingPlatform.AudioMessage.MQAudio
             #endregion End
             XmlDocument xmlHeartDoc = new XmlDocument();
             responseXML rHeart = new responseXML();
-            //rHeart.SourceAreaCode = ServerForm. strSourceAreaCode;
-            //rHeart.SourceType = ServerForm.strSourceType;
-            //rHeart.SourceName = ServerForm.strSourceName;
-            //rHeart.SourceID = ServerForm.strSourceID;
-            //rHeart.sHBRONO = SingletonInfo.GetInstance().CurrentResourcecode;
-           
-         
-            
             string frdStateName = "10" + SingletonInfo.GetInstance().CurrentResourcecode + GetSequenceCodes();
             string xmlEBMStateFileName = "\\EBDB_" + frdStateName + ".xml";
             xmlHeartDoc = rHeart.EBMStateRequestResponse(ebdsr, frdStateName,BrdStateCode);
-
             TarXml.AudioResponseXml.CreateXML(xmlHeartDoc, ServerForm.sEBMStateResponsePath + xmlEBMStateFileName);
             ServerForm.mainFrm.GenerateSignatureFile(ServerForm.sEBMStateResponsePath, frdStateName);
-            ServerForm.tar.CreatTar(ServerForm.sEBMStateResponsePath, ServerForm.sSendTarPath, frdStateName);// "HB000000000001");//使用新TAR
-
-
+            ServerForm.tar.CreatTar(ServerForm.sEBMStateResponsePath, ServerForm.sSendTarPath, frdStateName);
             string sHeartBeatTarName = ServerForm.sSendTarPath + "\\EBDT_" + frdStateName + ".tar";
             try
             {
@@ -181,120 +171,251 @@ namespace EmergencyBroadcastingDockingPlatform.AudioMessage.MQAudio
             return flag;
         }
 
-        private bool UpdateState(string TimingTerminalState)
-        {
-            bool flag = false;
-            XmlDocument xmlHeartDoc = new XmlDocument();
-            responseXML rHeart = new responseXML();
-            rHeart.SourceAreaCode = ServerForm.strSourceAreaCode;
-            rHeart.SourceType = ServerForm.strSourceType;
-            rHeart.SourceName = ServerForm.strSourceName;
-            rHeart.SourceID = ServerForm.strSourceID;
-            rHeart.sHBRONO = SingletonInfo.GetInstance().CurrentResourcecode;
-            string MediaSql = "";
-            string strSRV_ID = "";
-            string strSRV_CODE = "";
-            ServerForm.DeleteFolder(ServerForm.sHeartSourceFilePath);//删除原有XML发送文件的文件夹下的XML
-            string frdStateName = "";
-            List<Device> lDev = new List<Device>();
-            try
-            {
-                MediaSql = "select  SRV.SRV_ID,SRV.SRV_CODE,SRV_GOOGLE,SRV_PHYSICAL_CODE,srv_detail,SRV_LOGICAL_CODE_GB,SRV_MFT_DATE,updateDate,SRV_RMT_STATUS  FROM SRV  left join Srvtype on   SRV.DeviceTypeId= Srvtype .srv_id where  Srvtype.srv_id=1";
-                DataTable dtMedia = mainForm.dba.getQueryInfoBySQL(MediaSql);
-                if (dtMedia != null && dtMedia.Rows.Count > 0)
-                {
-                    if (dtMedia.Rows.Count > 100)
-                    {
-                        int mod = dtMedia.Rows.Count / 100 + 1;
-                        for (int i = 0; i < mod; i++)
-                        {
-                            for (int idtM = 0; idtM < dtMedia.Rows.Count; idtM++)
-                            {
-                                Device DV = new Device();
-                                DV.SRV_ID = dtMedia.Rows[idtM][0].ToString();
-                                strSRV_CODE = dtMedia.Rows[idtM][1].ToString();
-                                DV.DeviceID = dtMedia.Rows[idtM]["SRV_LOGICAL_CODE_GB"].ToString();//修改于20180819 把资源码换成23位
-                                DV.DeviceName = dtMedia.Rows[idtM][4].ToString();
-                                DV.Latitude = dtMedia.Rows[idtM][2].ToString().Split(',')[0];
-                                DV.Longitude = dtMedia.Rows[idtM][2].ToString().Split(',')[1];
-                                DV.Srv_Mft_Date = dtMedia.Rows[idtM]["SRV_MFT_DATE"].ToString();
-                                DV.UpdateDate = dtMedia.Rows[idtM]["updateDate"].ToString();
-                                DV.DeviceState = TimingTerminalState;
-                                lDev.Add(DV);
-                            }
-                            frdStateName = "10" + rHeart.sHBRONO + GetSequenceCodes();
-                            string xmlEBMStateFileName = "\\EBDB_" + frdStateName + ".xml";
 
-                            xmlHeartDoc = rHeart.DeviceStateResponse(lDev, frdStateName);
-                            TarXml.AudioResponseXml. CreateXML(xmlHeartDoc, ServerForm.sHeartSourceFilePath + xmlEBMStateFileName);
-                            ServerForm.mainFrm.GenerateSignatureFile(ServerForm.sHeartSourceFilePath, frdStateName);
-                            ServerForm.tar.CreatTar(ServerForm.sHeartSourceFilePath, ServerForm.sSendTarPath, frdStateName);//使用新TAR
-                            string sHeartBeatTarName = ServerForm.sSendTarPath + "\\" + "EBDT_" + frdStateName + ".tar";
-                           string result =SendTar.SendTarOrder.sendHelper.AddPostQueue (SingletonInfo.GetInstance().SendTarAddress, sHeartBeatTarName);
-                            if (result == "1")
+        /// <summary>
+        /// 比较两个列表的内容是否相等  
+        /// </summary>
+        /// <param name="List1"></param>
+        /// <param name="List2"></param>
+        /// <returns></returns>
+        private bool CheckList(List<IncrementalEBRDTState> List1, List<IncrementalEBRDTState> List2)
+        {
+            bool flag = true;
+            if (List1.Count == List2.Count)
+            {
+                foreach (IncrementalEBRDTState item in List1)
+                {
+                    foreach (var item1 in List2)
+                    {
+                        if (item1.SRV_LOGICAL_CODE_GB == item.SRV_LOGICAL_CODE_GB)
+                        {
+                            //被实例化的对象，是必须分属性一一对比的，没办法一次性对比。
+                            if (item1.powersupplystatus != item.powersupplystatus)
                             {
-                                flag = true;
+                                flag = false;
+                                break;
+                            }
+
+                            if (item1.SRV_RMT_STATUS != item.SRV_RMT_STATUS)
+                            {
+                                flag = false;
+                                break;
+                            }
+
+                            if (item1.SRV_PHYSICAL_CODE != item.SRV_PHYSICAL_CODE)
+                            {
+                                flag = false;
+                                break;
+                            }
+
+                        }
+                    }
+                }
+            }
+            else
+            {
+                flag = false;
+            }
+            return flag;
+        }
+
+        /// <summary>
+        /// 从数据库获取终端状态信息
+        /// </summary>
+        /// <param name="datatype"></param>
+        /// <returns></returns>
+        private List<Device> GetEBRDTStateFromDataBase(string datatype)
+        {
+            List<Device> ListDevicetmp = new List<Device>();
+            if (datatype == "Incremental")
+            {
+                #region 增量
+                string MediaSql = "select a.SRV_PHYSICAL_CODE,a.SRV_LOGICAL_CODE_GB,a.SRV_RMT_STATUS,b.powersupplystatus from SRV a inner join Srv_Status b on a.SRV_PHYSICAL_CODE = b.srv_physical_code";
+                DataTable dtMedia = mainForm.dba.getQueryInfoBySQL(MediaSql);
+                if (dtMedia.Rows.Count > 0)
+                {
+                    List<IncrementalEBRDTState> Listtmp = new List<IncrementalEBRDTState>();
+                    foreach (DataRow item in dtMedia.Rows)
+                    {
+                        IncrementalEBRDTState pp = new IncrementalEBRDTState();
+                        pp.powersupplystatus = item["powersupplystatus"].ToString();
+                        pp.SRV_LOGICAL_CODE_GB = item["SRV_LOGICAL_CODE_GB"].ToString();
+                        pp.SRV_PHYSICAL_CODE = item["SRV_PHYSICAL_CODE"].ToString();
+                        pp.SRV_RMT_STATUS = item["SRV_RMT_STATUS"].ToString();
+                        Listtmp.Add(pp);
+                    }
+                    if (!CheckList(Listtmp, SingletonInfo.GetInstance().ListIncrementalEBRDTState))
+                    {
+                        foreach (IncrementalEBRDTState item in Listtmp)
+                        {
+                            IncrementalEBRDTState selectone = SingletonInfo.GetInstance().ListIncrementalEBRDTState.Find(c => c.SRV_PHYSICAL_CODE.Equals(item.SRV_PHYSICAL_CODE));
+                            if (selectone != null)
+                            {
+                                if (!selectone.Equals(item))
+                                {
+                                    selectone = item;
+                                    Device pp = new Device();
+                                    pp.EBRID = item.SRV_LOGICAL_CODE_GB;
+
+                                    if (item.SRV_RMT_STATUS == "离线")
+                                    {
+                                        pp.StateCode = "3";
+                                    }
+                                    else
+                                    {
+                                        string statustmp = item.powersupplystatus;
+                                        if (statustmp.Contains("广播"))
+                                        {
+                                            pp.StateCode = "5";
+                                        }
+                                        if (statustmp.Contains("关机"))
+                                        {
+                                            pp.StateCode = "2";
+                                        }
+                                        if (statustmp.Contains("开机"))
+                                        {
+                                            pp.StateCode = "1";
+                                        }
+                                    }
+                                    ListDevicetmp.Add(pp);
+
+                                }
+                            }
+                            else
+                            {
+                                //说明是新增的终端
+                                Device pp = new Device();
+                                pp.EBRID = item.SRV_LOGICAL_CODE_GB;
+                                string statustmp = item.powersupplystatus;
+                                if (statustmp.Contains("广播"))
+                                {
+                                    pp.StateCode = "5";
+                                }
+                                if (statustmp.Contains("关机"))
+                                {
+                                    pp.StateCode = "2";
+                                }
+                                if (statustmp.Contains("开机"))
+                                {
+                                    pp.StateCode = "1";
+                                }
+                                ListDevicetmp.Add(pp);
+                                SingletonInfo.GetInstance().ListIncrementalEBRDTState.Add(item);
                             }
                         }
                     }
                     else
                     {
-                        for (int idtM = 0; idtM < dtMedia.Rows.Count; idtM++)
-                        {
-                            Device DV = new Device();
-                            DV.SRV_ID = dtMedia.Rows[idtM][0].ToString();
-                            strSRV_CODE = dtMedia.Rows[idtM][1].ToString();
-                            DV.DeviceID = dtMedia.Rows[idtM]["SRV_LOGICAL_CODE_GB"].ToString();
-
-                            DV.DeviceName = dtMedia.Rows[idtM][4].ToString();
-
-                            DV.Latitude = dtMedia.Rows[idtM][2].ToString().Split(',')[0];
-                            DV.Longitude = dtMedia.Rows[idtM][2].ToString().Split(',')[1];
-                            DV.Srv_Mft_Date = dtMedia.Rows[idtM]["SRV_MFT_DATE"].ToString();
-                            DV.UpdateDate = dtMedia.Rows[idtM]["updateDate"].ToString();
-                            DV.DeviceState = TimingTerminalState;
-                            lDev.Add(DV);
-                        }
-                        Random rdState = new Random();
-                        frdStateName = "10" + rHeart.sHBRONO + GetSequenceCodes();
-                        string xmlEBMStateFileName = "\\EBDB_" + frdStateName + ".xml";
-
-                        xmlHeartDoc = rHeart.DeviceStateResponse(lDev, frdStateName);
-                        TarXml.AudioResponseXml. CreateXML(xmlHeartDoc, ServerForm. sHeartSourceFilePath + xmlEBMStateFileName);
-                        ServerForm.mainFrm.GenerateSignatureFile(ServerForm.sHeartSourceFilePath, frdStateName);
-                        ServerForm.tar.CreatTar(ServerForm.sHeartSourceFilePath, ServerForm.sSendTarPath, frdStateName);//使用新TAR
-                        string sHeartBeatTarName = ServerForm.sSendTarPath + "\\" + "EBDT_" + frdStateName + ".tar";
-                        string result = SendTar.SendTarOrder.sendHelper.AddPostQueue(SingletonInfo.GetInstance().SendTarAddress, sHeartBeatTarName);
-                        if (result == "1")
-                        {
-                            flag = true;
-                        }
+                       // MessageBox.Show("终端状态没有发生变化");
                     }
                 }
-                else
-                {
-                    Random rdState = new Random();
-                    frdStateName = "10" + rHeart.sHBRONO + GetSequenceCodes();
-                    string xmlEBMStateFileName = "\\EBDB_" + frdStateName + ".xml";
+                #endregion
+            }
+            else
+            {
+                #region 全量
+                //全量终端信息  包括没有回传功能的设备
+                string MediaSql1 = "select SRV_PHYSICAL_CODE,SRV_LOGICAL_CODE_GB,SRV_RMT_STATUS,SRV_RMT_SWITCH from SRV";
+                string MediaSql2 = "select srv_physical_code,powersupplystatus from Srv_Status";
 
-                    xmlHeartDoc = rHeart.DeviceStateResponse(lDev, frdStateName);
-                    TarXml.AudioResponseXml. CreateXML(xmlHeartDoc, ServerForm. sHeartSourceFilePath + xmlEBMStateFileName);
-                    ServerForm.mainFrm.GenerateSignatureFile(ServerForm.sHeartSourceFilePath, frdStateName);
-                    ServerForm.tar.CreatTar(ServerForm.sHeartSourceFilePath, ServerForm.sSendTarPath, frdStateName);//使用新TAR
-                    string sHeartBeatTarName = ServerForm.sSendTarPath + "\\" + "EBDT_" + frdStateName + ".tar";
-                    string result = SendTar.SendTarOrder.sendHelper.AddPostQueue(SingletonInfo.GetInstance().SendTarAddress, sHeartBeatTarName);
-                    if (result == "1")
+                DataTable dtMedia1 = mainForm.dba.getQueryInfoBySQL(MediaSql1);
+                DataTable dtMedia2 = mainForm.dba.getQueryInfoBySQL(MediaSql2);
+                foreach (DataRow item1 in dtMedia1.Rows)
+                {
+                    if (item1["SRV_RMT_SWITCH"].ToString() == "启用")
                     {
-                        flag = true;
+                        //带回传功能的终端
+                        DataRow[] drsingle = dtMedia2.Select(string.Format("srv_physical_code={0}", item1["SRV_PHYSICAL_CODE"]));
+                        if (drsingle.Length > 0)
+                        {
+                            foreach (DataRow item2 in dtMedia2.Rows)
+                            {
+                                if (item2["srv_physical_code"].ToString() == item1["SRV_PHYSICAL_CODE"].ToString())
+                                {
+                                    Device pp = new Device();
+                                    pp.EBRID = item1["SRV_LOGICAL_CODE_GB"].ToString();
+
+                                    if (item1["SRV_RMT_STATUS"].ToString() == "离线")
+                                    {
+                                        pp.StateCode = "3";
+                                    }
+                                    else
+                                    {
+                                        string statustmp = item2["powersupplystatus"].ToString();
+                                        if (statustmp.Contains("广播"))
+                                        {
+                                            pp.StateCode = "5";
+                                        }
+                                        if (statustmp.Contains("关机"))
+                                        {
+                                            pp.StateCode = "2";
+                                        }
+                                        if (statustmp.Contains("开机"))
+                                        {
+                                            pp.StateCode = "1";
+                                        }
+                                    }
+                                    ListDevicetmp.Add(pp);
+                                }
+                            }
+                        }
+                        else
+                        {
+                            //有回传功能但数据没回传回来
+                            Device pp = new Device();
+                            pp.EBRID = item1["SRV_LOGICAL_CODE_GB"].ToString();
+                            pp.StateCode = "3";
+                            ListDevicetmp.Add(pp);
+                        }
                     }
+                    else
+                    {
+                        //不带回传功能的终端
+                        Device pp = new Device();
+                        pp.EBRID = item1["SRV_LOGICAL_CODE_GB"].ToString();
+                        pp.StateCode = "1";//没有回传，不知道具体状态，先强制赋值  20190111
+                        ListDevicetmp.Add(pp);
+                    }
+                }
+                #endregion
+            }
+            return ListDevicetmp;
+        }
+
+        #region 应急广播平台终端状态上报函数
+        private bool UpdateState()
+        {
+            bool flag = false;
+            XmlDocument xmlHeartDoc = new XmlDocument();
+            responseXML rHeart = new responseXML();
+            string MediaSql = "";
+            ServerForm.DeleteFolder(ServerForm.sHeartSourceFilePath);//删除原有XML发送文件的文件夹下的XML
+            string frdStateName = "";
+            List<Device> lDev = new List<Device>();
+            try
+            {
+                lDev = GetEBRDTStateFromDataBase("Full");
+                frdStateName = "10" + SingletonInfo.GetInstance().CurrentResourcecode + BBSHelper.GetSequenceCodes();
+                string xmlEBMStateFileName = "\\EBDB_" + frdStateName + ".xml";
+                xmlHeartDoc = rHeart.DeviceStateResponse(lDev, frdStateName);
+                TarXml.AudioResponseXml.CreateXML(xmlHeartDoc, ServerForm.sHeartSourceFilePath + xmlEBMStateFileName);
+                ServerForm.mainFrm.GenerateSignatureFile(ServerForm.sHeartSourceFilePath, frdStateName);
+                ServerForm.tar.CreatTar(ServerForm.sHeartSourceFilePath, ServerForm.sSendTarPath, frdStateName);//使用新TAR
+                string sHeartBeatTarName = ServerForm.sSendTarPath + "\\" + "EBDT_" + frdStateName + ".tar";
+                string result = SendTar.SendTarOrder.sendHelper.AddPostQueue(SingletonInfo.GetInstance().SendTarAddress, sHeartBeatTarName);
+                if (result == "1")
+                {
+                    flag = true;
                 }
             }
-            catch(Exception ex)
+            catch (Exception ex)
             {
                 throw new Exception("终端状态变更:" + ex.Message);
             }
             return flag;
         }
+        #endregion
+
 
         public DataTable ViewDataTsCmdStore(string TsCmd_ID)
         {

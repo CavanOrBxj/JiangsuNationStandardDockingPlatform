@@ -481,10 +481,19 @@ namespace EmergencyBroadcastingDockingPlatform
                     //处理接收的文件
                     bool verifySuccess = false;
                     DealTarBack(sFilePath, out verifySuccess);
-                    if (verifySuccess)
+                    if (SingletonInfo.GetInstance().m_UsbPwsSupport == "2")
                     {
+                        //不支持签名
                         ServerForm.lRevFiles.Add(sFilePath);//完成接收文件后把文件增加到处理列表上去
-                    }  
+                    }
+                    else
+                    {
+                        //支持签名
+                        if (verifySuccess)
+                        {
+                            ServerForm.lRevFiles.Add(sFilePath);//完成接收文件后把文件增加到处理列表上去
+                        }
+                    }
                 }
                 catch (Exception em)
                 {
@@ -520,12 +529,11 @@ namespace EmergencyBroadcastingDockingPlatform
                     }
                     #endregion End
                     ServerForm.tar.UnpackTarFiles(filepath, ServerForm.strBeUnTarFolder);//把压缩包解压到专门存放接收到的XML文件的文件夹下
-
                     string[] xmlfilenames = Directory.GetFiles(ServerForm.strBeUnTarFolder, "*.xml");//从解压XML文件夹下获取解压的XML文件名
                     string sTmpFile = string.Empty;
                     string sAnalysisFileName = "";
                     string sSignFileName = "";
-                    if (mainForm.m_UsbPwsSupport == "1")
+                    if (SingletonInfo.GetInstance().m_UsbPwsSupport == "1")
                     {
                         if (xmlfilenames.Length < 2)//没有签名文件
                             PlatformVerifySignatureresule = false;
@@ -561,7 +569,7 @@ namespace EmergencyBroadcastingDockingPlatform
                     {
                         myEBDType = ebdb.EBDType;
                     }
-                    if (!string.IsNullOrWhiteSpace(sSignFileName) && myEBDType != "ConnectionCheck")
+                    if (!string.IsNullOrWhiteSpace(sSignFileName) && myEBDType != "ConnectionCheck" && SingletonInfo.GetInstance().m_UsbPwsSupport=="1")
                     {
                         //读取xml中的文件,转换为byte字节
                         byte[] xmlArray = File.ReadAllBytes(sAnalysisFileName);
@@ -601,7 +609,7 @@ namespace EmergencyBroadcastingDockingPlatform
                     }
 
                     ServerForm.DeleteFolder(ServerForm.strBeSendFileMakeFolder);//删除原有XML发送文件的文件夹下的XML
-                    if (!PlatformVerifySignatureresule && myEBDType != "ConnectionCheck")
+                    if (!PlatformVerifySignatureresule && myEBDType != "ConnectionCheck" &&SingletonInfo.GetInstance().m_UsbPwsSupport=="1")
                     {
                         //验签失败
                         CurrencyTarBack(ebdb, "4");
@@ -642,11 +650,6 @@ namespace EmergencyBroadcastingDockingPlatform
                 ServerForm.DeleteFolder(ServerForm.strBeSendFileMakeFolder);//删除原有XML发送文件的文件夹下的XML
                 XmlDocument xmlDoc = new XmlDocument();
                 responseXML rp = new responseXML();
-                //rp.SourceAreaCode = ServerForm.strSourceAreaCode;
-                //rp.SourceType = ServerForm.strSourceType;
-                //rp.SourceName = ServerForm.strSourceName;
-                //rp.SourceID = ServerForm.strSourceID;
-                //rp.sHBRONO = SingletonInfo.GetInstance().CurrentResourcecode;
                 string fName = "10" + SingletonInfo.GetInstance().CurrentResourcecode + BBSHelper.GetSequenceCodes();
                 xmlDoc = rp.EBDResponse(ebdb, "EBDResponse", fName, value);
                 string xmlSignFileName = "\\EBDB_" + fName + ".xml";
