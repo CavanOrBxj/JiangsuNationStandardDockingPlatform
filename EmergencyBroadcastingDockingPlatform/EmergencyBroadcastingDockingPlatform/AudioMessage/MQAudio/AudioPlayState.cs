@@ -95,21 +95,17 @@ namespace EmergencyBroadcastingDockingPlatform.AudioMessage.MQAudio
                         dt = ViewDataTsCmdStore(TmcId);
                         if (dt != null && dt.Rows.Count > 0)
                         {
-
                             flag = FeedbackFunction(ebd, BrdStateCode, TimingTerminalState);
                             return flag;
                         }
-
                     }
                 }
                 else
                 {
-
                     flag = FeedbackFunction(ebd, BrdStateCode, TimingTerminalState);
                     return flag;
                 }
                 return false;
-
             }
             catch (Exception ex)
             {
@@ -134,7 +130,6 @@ namespace EmergencyBroadcastingDockingPlatform.AudioMessage.MQAudio
         {
             //*反馈
             #region 先删除解压缩包中的文件
-
             bool flag = false;
             foreach (string xmlfiledel in Directory.GetFileSystemEntries(ServerForm.sEBMStateResponsePath))
             {
@@ -422,7 +417,6 @@ namespace EmergencyBroadcastingDockingPlatform.AudioMessage.MQAudio
             string MediaSql;
             try
             {
-
                 MediaSql = "select TsCmd_ID,TsCmd_ExCute from  TsCmdStore where TsCmd_ID='" + TsCmd_ID + "'";
                 //  MediaSql = "select top(1)TsCmd_ID,TsCmd_XmlFile from  TsCmdStore where TsCmd_ValueID = '" + ebd.EBMStateRequest.EBM.EBMID + "' order by TsCmd_Date desc";
                 DataTable dtMedia = mainForm.dba.getQueryInfoBySQL(MediaSql);

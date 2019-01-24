@@ -769,13 +769,9 @@ namespace EmergencyBroadcastingDockingPlatform
                                             string sqlstr = "";
                                             string strMsgType = ebd.EBM.MsgBasicInfo.MsgType; //播发类型
                                             string strAuxiliaryType = "";
-                                         
-
                                             if (strMsgType == "1")
                                             {
                                                 //播放
-                                               
-
                                                 #region 获取播放类型  1推流播放  2 文件播放
                                                 if (ebd.EBM.MsgContent != null)
                                                 {
@@ -1014,45 +1010,59 @@ namespace EmergencyBroadcastingDockingPlatform
                                                 string sqlQueryTsCmd_ValueID = "select AreaCode from EBMInfo where EBMID = " + EBMIDtmp + "";
                                                 DataTable dtMediaAreaCode = mainForm.dba.getQueryInfoBySQL(sqlQueryTsCmd_ValueID);
                                                 string AreaString = "";
-                                                if (dtMediaAreaCode.Rows.Count > 0)
+
+                                                if (dtMediaAreaCode != null)
                                                 {
-                                                    AreaString = dtMediaAreaCode.Rows[0]["AreaCode"].ToString();
+                                                    if (dtMediaAreaCode.Rows.Count > 0)
+                                                    {
+                                                        AreaString = dtMediaAreaCode.Rows[0]["AreaCode"].ToString();
+                                                        if (SingletonInfo.GetInstance().DicTsCmd_ID.ContainsKey(AreaString))
+                                                        {
+                                                            SetText("停止播发：" + DateTime.Now.ToString(), Color.Red);
+                                                            string PR_SourceID = SingletonInfo.GetInstance().DicTsCmd_ID[AreaString];
+                                                            string strSql = string.Format("update PLAYRECORD set PR_REC_STATUS = '{0}' where PR_SourceID='{1}'", "删除", PR_SourceID);
+                                                            strSql += " update EBMInfo set EBMState=5 where EBMID='" + EBMIDtmp + "' ";//更新EBMInfo的数据   20190114
+                                                            strSql += "delete from InfoVlaue";  //待确认   20190114  是否需要加这一句
+                                                            mainForm.dba.UpdateDbBySQL(strSql);
+                                                            Tccplayer.Enabled = false;
+                                                            RealAudioFlag = false;//标记为已经执行
+                                                            if (SingletonInfo.GetInstance().DicTsCmd_ID.ContainsKey(AreaString))
+                                                            {
+                                                                if (SingletonInfo.GetInstance().DicTsCmd_ID.Remove(AreaString))
+                                                                {
+                                                                    //SetText("去除DicTsCmd_ID的键：" + AreaString, Color.Black);
+                                                                }
+                                                            }
+                                                            if (SingletonInfo.GetInstance().DicPlayingThread.ContainsKey(AreaString))
+                                                            {
+                                                                foreach (var item in SingletonInfo.GetInstance().DicPlayingThread[AreaString])
+                                                                {
+                                                                    Application.DoEvents();
+                                                                    item.Abort();
+                                                                    GC.Collect();
+                                                                }
+                                                                SingletonInfo.GetInstance().DicPlayingThread.Remove(AreaString);
+                                                            }
+                                                            lDealTarFiles.RemoveAt(0);//无论是否成功，都移除  先注释 20180820
+
+                                                            #region  要回包告诉上级平台 播发取消了   20190122
+
+                                                            #endregion
+                                                            break;
+                                                        }
+                                                    }
+                                                    else
+                                                    {
+                                                        MessageBox.Show("未找到播放记录！");
+                                                        break;
+                                                    }
+                                                    
                                                 }
-                                                if (SingletonInfo.GetInstance().DicTsCmd_ID.ContainsKey(AreaString))
+                                                else
                                                 {
-                                                    SetText("停止播发：" + DateTime.Now.ToString(), Color.Red);
-                                                    string PR_SourceID = SingletonInfo.GetInstance().DicTsCmd_ID[AreaString];
-                                                    string strSql = string.Format("update PLAYRECORD set PR_REC_STATUS = '{0}' where PR_SourceID='{1}'", "删除", PR_SourceID);
-                                                    strSql += " update EBMInfo set EBMState=5 where EBMID='" + EBMIDtmp + "' ";//更新EBMInfo的数据   20190114
-                                                    strSql += "delete from InfoVlaue";  //待确认   20190114  是否需要加这一句
-                                                    mainForm.dba.UpdateDbBySQL(strSql);
-                                                    Tccplayer.Enabled = false;
-                                                    RealAudioFlag = false;//标记为已经执行
-                                                    if (SingletonInfo.GetInstance().DicTsCmd_ID.ContainsKey(AreaString))
-                                                    {
-                                                        if (SingletonInfo.GetInstance().DicTsCmd_ID.Remove(AreaString))
-                                                        {
-                                                            //SetText("去除DicTsCmd_ID的键：" + AreaString, Color.Black);
-                                                        }
-                                                    }
-                                                    if (SingletonInfo.GetInstance().DicPlayingThread.ContainsKey(AreaString))
-                                                    {
-                                                        foreach (var item in SingletonInfo.GetInstance().DicPlayingThread[AreaString])
-                                                        {
-                                                            Application.DoEvents();
-                                                            item.Abort();
-                                                            GC.Collect();
-                                                        }
-                                                        SingletonInfo.GetInstance().DicPlayingThread.Remove(AreaString);
-                                                    }
-                                                    lDealTarFiles.RemoveAt(0);//无论是否成功，都移除  先注释 20180820
-
-                                                    #region  要回包告诉上级平台 播发取消了   20190114 
-
-                                                    #endregion
+                                                    MessageBox.Show("同一消息播发多次，且数据未变化！");
                                                     break;
                                                 }
-                                               
                                             }
                                             #endregion End
                                             break;
