@@ -22,11 +22,9 @@ namespace EmergencyBroadcastingDockingPlatform.AudioMessage.MQAudio
 
             if (!AudioModel.TextState)
             {
-                // AudioModel.PlayingTime = DateTime.Now.AddMinutes(0);
-
                 #region 测试用数据   20190115
-                //AudioModel.PlayingTime = DateTime.Now.AddMinutes(0);
-                //AudioModel.PlayEndTime = DateTime.Now.AddMinutes(2);
+                AudioModel.PlayingTime = DateTime.Now.AddMinutes(0);
+                AudioModel.PlayEndTime = DateTime.Now.AddMinutes(2);
                 #endregion
                 //AudioModel.PlayingTime = audio.PlayingTime;
                 //AudioModel.PlayEndTime = audio.PlayEndTime;

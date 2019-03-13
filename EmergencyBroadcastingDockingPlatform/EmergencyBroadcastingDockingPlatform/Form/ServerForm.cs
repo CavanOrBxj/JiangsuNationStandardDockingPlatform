@@ -401,12 +401,12 @@ namespace EmergencyBroadcastingDockingPlatform
 
             if (EBMVerifyState)
             {
-                btn_Verify.Text = "自动审核状态";
+                btn_Verify.Text = "人工审核-未开启";
                 SingletonInfo.GetInstance().CheckEBMStatusFlag = "1";
             }
             else
             {
-                btn_Verify.Text = "人工审核状态";
+                btn_Verify.Text = "人工审核-已开启";
                 SingletonInfo.GetInstance().CheckEBMStatusFlag = "0";
             }
 
@@ -2760,13 +2760,13 @@ namespace EmergencyBroadcastingDockingPlatform
             string StateFaleText = btn_Verify.Text;
             if (StateFaleText == "人工审核-未开启")
             {
-                SingletonInfo.GetInstance().serverini.WriteValue("EBD", "EBMState", "True");
-                EBMVerifyState = true;//人工审核状态  true  表示已开启
+                SingletonInfo.GetInstance().serverini.WriteValue("EBD", "EBMState", "False");
+                EBMVerifyState = false;//人工审核状态  true  表示已开启
                 btn_Verify.Text = "人工审核-已开启";
             }
             else
             {
-                SingletonInfo.GetInstance().serverini.WriteValue("EBD", "EBMState", "False");
+                SingletonInfo.GetInstance().serverini.WriteValue("EBD", "EBMState", "True");
                 EBMVerifyState = false;
                 btn_Verify.Text = "人工审核-未开启";
             }
