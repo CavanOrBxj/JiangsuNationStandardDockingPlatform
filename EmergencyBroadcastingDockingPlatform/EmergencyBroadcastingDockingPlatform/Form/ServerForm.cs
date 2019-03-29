@@ -109,7 +109,7 @@ namespace EmergencyBroadcastingDockingPlatform
         private int iAudioDelayTime = 0;//文转语延迟时间
         private int iMediaDelayTime = 0;//音频延迟时间
         private string bCharToAudio = "";  //1文转语，2 音频播放 
-        public static EBD ebd;
+    //    public static EBD ebd;
 
         delegate void SetTextCallback(string text, Color color); //在界面上显示信息委托
         private string PlayType = "";
@@ -759,7 +759,7 @@ namespace EmergencyBroadcastingDockingPlatform
                                     sr.Close();
                                     xmlInfo = XmlSerialize.ReplaceLowOrderASCIICharacters(xmlInfo);
                                     xmlInfo = XmlSerialize.GetLowOrderASCIICharacters(xmlInfo);
-                                    ebd = XmlSerialize.DeserializeXML<EBD>(xmlInfo);
+                                    EBD ebd = XmlSerialize.DeserializeXML<EBD>(xmlInfo);
                                     sUrlAddress = SingletonInfo.GetInstance().SendTarAddress;  //异步反馈的地址
                                     #region 根据EBD类型处理XML文件
                                     switch (ebd.EBDType)
@@ -1615,14 +1615,14 @@ namespace EmergencyBroadcastingDockingPlatform
             if (ebm != null)
             {
                 EBDVersion = ebm.EBDVersion;
-                SEBDID = ebd.EBDID;
-                SEDBType = ebd.EBDType;
+                SEBDID = ebm.EBDID;
+                SEDBType = ebm.EBDType;
                 SEBRID = ebm.SRC.EBRID;
                 //   EBRID = ebm.DEST.EBRID;
                     EBRID = "";
                    SEBBuidTime = ebm.EBDTime;
                 SEBDIDStatusFlag = SEBDID;
-                if (ebd.EBDType == "EBM")
+                if (ebm.EBDType == "EBM")
                 {
                     EBMID = ebm.EBM.EBMID;
                     MsaType = ebm.EBM.MsgBasicInfo.MsgType;
@@ -2877,7 +2877,7 @@ namespace EmergencyBroadcastingDockingPlatform
                         sr.Close();
                         xmlInfo = XmlSerialize.ReplaceLowOrderASCIICharacters(xmlInfo);
                         xmlInfo = XmlSerialize.GetLowOrderASCIICharacters(xmlInfo);
-                        ebd = XmlSerialize.DeserializeXML<EBD>(xmlInfo);
+                        EBD ebd = XmlSerialize.DeserializeXML<EBD>(xmlInfo);
                      
                         AudioFileListTmp.Clear();
                         AudioFileList.Clear();
@@ -3104,31 +3104,31 @@ namespace EmergencyBroadcastingDockingPlatform
         }
 
 
-        private bool SendMQOrderNew(int Type, string ParamValue, string TsCmd_ID, string TsCmd_ValueID, bool flag = true)
-        {
-            try
-            {
-                if (ebd != null && flag)
-                {
-                    string InfoValueStr = "insert into InfoVlaue values('" + ebd.EBDID + "')";
-                    mainForm.dba.UpdateDbBySQL(InfoValueStr);
-                }
-                if (ParamValue.Length > 0)
-                {
-                    if (SingletonInfo.GetInstance().m_mq == null)
-                    {
-                        MQActivStart();
-                    }
-                }
-                m_lstProperty = InstallNew(Type, ParamValue, TsCmd_ID, TsCmd_ValueID);//~0~1200~192~0~1~1应急
+        //private bool SendMQOrderNew(int Type, string ParamValue, string TsCmd_ID, string TsCmd_ValueID, bool flag = true)
+        //{
+        //    try
+        //    {
+        //        if (ebd != null && flag)
+        //        {
+        //            string InfoValueStr = "insert into InfoVlaue values('" + ebd.EBDID + "')";
+        //            mainForm.dba.UpdateDbBySQL(InfoValueStr);
+        //        }
+        //        if (ParamValue.Length > 0)
+        //        {
+        //            if (SingletonInfo.GetInstance().m_mq == null)
+        //            {
+        //                MQActivStart();
+        //            }
+        //        }
+        //        m_lstProperty = InstallNew(Type, ParamValue, TsCmd_ID, TsCmd_ValueID);//~0~1200~192~0~1~1应急
 
-                return SingletonInfo.GetInstance().m_mq.SendMQMessage(true, "Send", m_lstProperty);
-            }
-            catch (Exception)
-            {
-                return false;
-            }
-        }
+        //        return SingletonInfo.GetInstance().m_mq.SendMQMessage(true, "Send", m_lstProperty);
+        //    }
+        //    catch (Exception)
+        //    {
+        //        return false;
+        //    }
+        //}
 
         /// <summary>
         /// 组装MQ指令
@@ -3233,30 +3233,30 @@ namespace EmergencyBroadcastingDockingPlatform
             return InstallList;
         }
 
-        private bool SendMQOrder(int Type, string ParamValue, string TsCmd_ID)
-        {
-            try
-            {
-                if (ebd != null)
-                {
-                    string InfoValueStr = "insert into InfoVlaue values('" + ebd.EBDID + "')";
-                    mainForm.dba.UpdateDbBySQL(InfoValueStr);
-                }
-                if (ParamValue.Length > 0)
-                {
-                    if (SingletonInfo.GetInstance().m_mq == null)
-                    {
-                        MQActivStart();
-                    }
-                }
-                m_lstProperty = Install(Type, ParamValue, TsCmd_ID);//~0~1200~192~0~1~1应急
-                return SingletonInfo.GetInstance().m_mq.SendMQMessage(true, "Send", m_lstProperty);
-            }
-            catch (Exception)
-            {
-                return false;
-            }
-        }
+        //private bool SendMQOrder(int Type, string ParamValue, string TsCmd_ID)
+        //{
+        //    try
+        //    {
+        //        if (ebd != null)
+        //        {
+        //            string InfoValueStr = "insert into InfoVlaue values('" + ebd.EBDID + "')";
+        //            mainForm.dba.UpdateDbBySQL(InfoValueStr);
+        //        }
+        //        if (ParamValue.Length > 0)
+        //        {
+        //            if (SingletonInfo.GetInstance().m_mq == null)
+        //            {
+        //                MQActivStart();
+        //            }
+        //        }
+        //        m_lstProperty = Install(Type, ParamValue, TsCmd_ID);//~0~1200~192~0~1~1应急
+        //        return SingletonInfo.GetInstance().m_mq.SendMQMessage(true, "Send", m_lstProperty);
+        //    }
+        //    catch (Exception)
+        //    {
+        //        return false;
+        //    }
+        //}
 
         /// <summary>
         /// 组装MQ指令
